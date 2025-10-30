@@ -61,14 +61,14 @@ export default function ContactSection() {
             <ContactCard
               title="Call us directly"
               icon={<Phone className="text-3xl text-green-600" />}
-              text="+254-110-179-220"
+              text="+254-791-019-668"
               btnText="Call Us"
               className="hover:shadow-xl hover:border-green-300 transition-all"
             />
             <ContactCard
               title="Chat with us"
               icon={<Mail className="text-3xl text-gray-800" />}
-              text="andikamichael163@gmail.com"
+              text="jengasafi@gmail.com"
               btnText="Email Us"
               className="hover:shadow-xl hover:border-green-300 transition-all"
             />
