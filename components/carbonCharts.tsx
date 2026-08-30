@@ -46,7 +46,7 @@ export function NetEmissionsTrend({ carbonData }: CarbonChartsProps) {
                 borderRadius: '8px',
               }}
               formatter={(value) => [`${Number(value).toFixed(2)} kg CO₂`]}
-              labelFormatter={(label) => new Date(label).toLocaleString()}
+              labelFormatter={(label) => new Date(String(label)).toLocaleString()}
             />
             <Legend />
             <Line
@@ -94,7 +94,7 @@ export function EmissionsVsSavings({ carbonData }: CarbonChartsProps) {
                 if (name === 'savings') return [formattedValue, 'Carbon Savings'];
                 return [formattedValue, name];
               }}
-              labelFormatter={(label) => new Date(label).toLocaleString()}
+              labelFormatter={(label) => new Date(String(label)).toLocaleString()}
             />
             <Legend />
             <Bar dataKey="emissions" fill="#ef4444" name="Emissions" />

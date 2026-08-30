@@ -6,6 +6,12 @@ type Source = (typeof ALLOWED_SOURCES)[number];
 
 const categories = new Set(["concrete", "steel", "wood", "insulation", "finishes", "other"]);
 
+const UPSTREAM_TIMEOUT_MS = 8000;
+
+function isJsonResponse(response: Response): boolean {
+  return response.headers.get("content-type")?.toLowerCase().includes("application/json") ?? false;
+}
+
 export async function GET(request: Request) {
   try {
     await requireAuth();
@@ -20,13 +26,27 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unsupported material category" }, { status: 400 });
     }
 
+    // EPC and OpenLCA require credentials. Do not call their web pages as if they
+    // were JSON APIs; that produces an HTML 200 response and a misleading 502.
+    if (source === "epc" && (!process.env.EPC_API_USERNAME || !process.env.EPC_API_PASSWORD)) {
+      return NextResponse.json({ source, error: "EPC credentials are not configured" }, { status: 503 });
+    }
+    if (source === "openlca" && !process.env.OPENLCA_API_KEY) {
+      return NextResponse.json({ source, error: "OpenLCA credentials are not configured" }, { status: 503 });
+    }
+
+    if (source === "usgs") {
+      return NextResponse.json(
+        { source, error: "The legacy USGS products API is no longer available" },
+        { status: 503 }
+      );
+    }
+
     const upstreamUrl = source === "epc"
-      ? "https://epc.opendatacommunities.org/api/v1/domestic/certificates?size=50&postcode=SW1A1AA"
-      : source === "usgs"
-        ? "https://api.usgs.gov/v1/products?source=commodity-statistics&limit=20"
-        : source === "openfoodfacts"
-          ? "https://world.openfoodfacts.org/api/v2/search?categories=construction-materials&fields=product_name,ecoscore_score,packaging&page_size=10"
-          : `https://nexus.openlca.org/api/v1/processes?category=${encodeURIComponent(category)}&limit=1`;
+      ? "https://api.epc.opendatacommunities.org/api/v1/domestic/search?size=50&postcode=SW1A1AA"
+      : source === "openfoodfacts"
+        ? "https://world.openfoodfacts.org/api/v2/search?categories=construction-materials&fields=product_name,ecoscore_score,packaging&page_size=10"
+        : `https://nexus.openlca.org/api/v1/processes?category=${encodeURIComponent(category)}&limit=1`;
 
     const headers: Record<string, string> = { Accept: "application/json" };
     if (source === "openfoodfacts") headers["User-Agent"] = "JengaSafi materials data client";
@@ -38,7 +58,7 @@ export async function GET(request: Request) {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
     let response: Response;
     try {
       response = await fetch(upstreamUrl, {
@@ -52,6 +72,10 @@ export async function GET(request: Request) {
 
     if (!response.ok) {
       return NextResponse.json({ source, error: `${source} returned HTTP ${response.status}` }, { status: 502 });
+    }
+
+    if (!isJsonResponse(response)) {
+      return NextResponse.json({ source, error: `${source} returned a non-JSON response` }, { status: 502 });
     }
 
     let data: unknown;

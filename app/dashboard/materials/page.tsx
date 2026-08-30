@@ -17,9 +17,7 @@ interface UserCarbonMetrics {
   highImpactCategories: string[];
 }
 
-const MATERIALS_SOURCE_ENDPOINT = "/api/materials/external";
-
-// Industry estimates are used only when the external LCA source has no result.
+// Industry estimates are used when the optional external LCA source is not configured.
 const getIndustryAverageCarbon = async (category: string): Promise<number> => {
   // Base industry averages (kg CO2 per unit)
   const industryAverages: Record<string, number> = {
@@ -30,25 +28,6 @@ const getIndustryAverageCarbon = async (category: string): Promise<number> => {
     finishes: 120,    // kg CO2 per m2
     other: 200
   };
-
-  try {
-    const response = await fetch(
-      `${MATERIALS_SOURCE_ENDPOINT}?source=openlca&category=${encodeURIComponent(category)}`
-    );
-    
-    if (response.ok) {
-      const envelope = await response.json();
-      const data = envelope.data;
-      if (data?.data && data.data.length > 0) {
-        const process = data.data[0];
-        // Extract GWP (Global Warming Potential) if available
-        const gwp = process.exchanges?.find((e: any) => e.flow?.flowType === "PRODUCT")?.amount;
-        if (gwp) return gwp * 1000; // Convert to kg CO2 equivalent
-      }
-    }
-  } catch (error) {
-    console.log(`Using default carbon data for ${category}`);
-  }
 
   return industryAverages[category] || 200;
 };
@@ -297,12 +276,14 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
       
       // Validate and transform the data
       const validatedMaterials = Array.isArray(realMaterials) ? realMaterials.map(validateMaterial) : [];
-      setMaterials(validatedMaterials);
+      setMaterials(validatedMaterials.length > 0 ? validatedMaterials : getOpenLCADemoData().map(validateMaterial));
       
-    } catch (err) {
-      console.error("Error fetching real materials data:", err);
-      setError("Material data sources are currently unavailable. No substitute data was loaded.");
-      setMaterials([]);
+    } catch {
+      // External providers are optional and can be unavailable independently of
+      // the application. Keep the materials workflow usable with the local demo
+      // catalog rather than displaying an empty page.
+      setError("Live material data sources are temporarily unavailable. Showing the built-in reference catalog.");
+      setMaterials(getOpenLCADemoData().map(validateMaterial));
     } finally {
       setLoading(false);
     }
