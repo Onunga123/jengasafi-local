@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { SustainableMaterial, Supplier } from "@/types";
+import { fetchRealMaterialsData } from "@/lib/materials/real-data-fetcher";
 
 interface MaterialsHubProps {
   onMaterialSelect?: (material: SustainableMaterial) => void;
@@ -16,25 +17,9 @@ interface UserCarbonMetrics {
   highImpactCategories: string[];
 }
 
-// Open data sources configuration
-const DATA_SOURCES = {
-  // Open Government Data (UK) - Construction materials
-  GOV_UK: "https://api.epc.opendatacommunities.org/api/v1/domestic/search",
-  
-  // OpenStreetMap + Overpass API for local suppliers
-  OSM_OVERPASS: "https://overpass-api.de/api/interpreter",
-  
-  // USGS Mineral Commodities for raw material data
-  USGS: "https://api.usgs.gov/v1/products",
-  
-  // Open Food Facts API pattern (adapted for materials)
-  OPEN_DATA: "https://world.openfoodfacts.org/api/v2/search",
-  
-  // UNEP LCA data via OpenLCA Nexus
-  OPENLCA: "https://nexus.openlca.org/api/v1/processes",
-};
+const MATERIALS_SOURCE_ENDPOINT = "/api/materials/external";
 
-// Industry standard carbon footprints with real data fallbacks
+// Industry estimates are used only when the external LCA source has no result.
 const getIndustryAverageCarbon = async (category: string): Promise<number> => {
   // Base industry averages (kg CO2 per unit)
   const industryAverages: Record<string, number> = {
@@ -47,14 +32,14 @@ const getIndustryAverageCarbon = async (category: string): Promise<number> => {
   };
 
   try {
-    // Try to get real data from OpenLCA Nexus
     const response = await fetch(
-      `https://nexus.openlca.org/api/v1/processes?category=${encodeURIComponent(category)}&limit=1`
+      `${MATERIALS_SOURCE_ENDPOINT}?source=openlca&category=${encodeURIComponent(category)}`
     );
     
     if (response.ok) {
-      const data = await response.json();
-      if (data.data && data.data.length > 0) {
+      const envelope = await response.json();
+      const data = envelope.data;
+      if (data?.data && data.data.length > 0) {
         const process = data.data[0];
         // Extract GWP (Global Warming Potential) if available
         const gwp = process.exchanges?.find((e: any) => e.flow?.flowType === "PRODUCT")?.amount;
@@ -66,135 +51,6 @@ const getIndustryAverageCarbon = async (category: string): Promise<number> => {
   }
 
   return industryAverages[category] || 200;
-};
-
-// Fetch real construction materials data from open sources
-const fetchRealMaterialsData = async (): Promise<any[]> => {
-  const materials = [];
-
-  try {
-    // 1. Try Open EPC API (UK Government - building materials)
-    const epcResponse = await fetch(
-      "https://epc.opendatacommunities.org/api/v1/domestic/certificates?size=50&postcode=SW1A1AA",
-      {
-        headers: {
-          "Accept": "application/json",
-          "Authorization": "Basic " + btoa("your-email:your-password") // Register for free API key
-        }
-      }
-    );
-
-    if (epcResponse.ok) {
-      const epcData = await epcResponse.json();
-      if (epcData.rows) {
-        epcData.rows.slice(0, 10).forEach((property: any) => {
-          materials.push({
-            name: `Building Material - ${property.property_type || 'Construction'}`,
-            description: `Sustainable construction material from ${property.address || 'UK certified source'}`,
-            category: getMaterialCategoryFromProperty(property),
-            price: calculateMaterialPrice(property),
-            unit: "ton",
-            ecoImpact: {
-              carbonFootprint: property.co2_emissions_current || 150,
-              waterUsage: 50,
-              recyclability: 70,
-              renewable: Math.random() > 0.7,
-              local: true,
-            },
-            supplier: {
-              name: "UK Certified Supplier",
-              location: property.address || "United Kingdom",
-              rating: 4.2,
-              certification: ["ISO 14001", "UKCA"]
-            }
-          });
-        });
-      }
-    }
-  } catch (error) {
-    console.log("EPC API unavailable, using alternative sources");
-  }
-
-  try {
-    // 2. USGS Mineral Commodities Data
-    const usgsResponse = await fetch(
-      "https://api.usgs.gov/v1/products?source=commodity-statistics&limit=20"
-    );
-
-    if (usgsResponse.ok) {
-      const usgsData = await usgsResponse.json();
-      usgsData.products?.slice(0, 5).forEach((product: any) => {
-        if (product.name && isConstructionMaterial(product.name)) {
-          materials.push({
-            name: `USGS ${product.name}`,
-            description: `Mineral commodity data from USGS - ${product.description || 'Construction grade material'}`,
-            category: mapUsgsToCategory(product.name),
-            price: Math.random() * 500 + 50,
-            unit: "ton",
-            ecoImpact: {
-              carbonFootprint: Math.random() * 300 + 50,
-              waterUsage: Math.random() * 100 + 10,
-              recyclability: Math.random() * 50 + 30,
-              renewable: false,
-              local: Math.random() > 0.5,
-            },
-            supplier: {
-              name: "USGS Certified Miner",
-              location: "United States",
-              rating: 4.0,
-              certification: ["USGS Standard"]
-            }
-          });
-        }
-      });
-    }
-  } catch (error) {
-    console.log("USGS API unavailable");
-  }
-
-  try {
-    // 3. Open Food Facts API pattern for material safety data
-    const offResponse = await fetch(
-      "https://world.openfoodfacts.org/api/v2/search?categories=construction-materials&fields=product_name,ecoscore_score,packaging&page_size=10"
-    );
-
-    if (offResponse.ok) {
-      const offData = await offResponse.json();
-      offData.products?.forEach((product: any) => {
-        if (product.product_name) {
-          materials.push({
-            name: product.product_name,
-            description: `Eco-scored material with safety data`,
-            category: "other",
-            price: Math.random() * 200 + 25,
-            unit: "unit",
-            ecoImpact: {
-              carbonFootprint: (100 - (product.ecoscore_score || 50)) * 2,
-              waterUsage: 30,
-              recyclability: product.packaging?.recycling || 60,
-              renewable: true,
-              local: false,
-            },
-            supplier: {
-              name: "Eco-Certified Manufacturer",
-              location: "Global",
-              rating: 4.1,
-              certification: ["Eco-Score Certified"]
-            }
-          });
-        }
-      });
-    }
-  } catch (error) {
-    console.log("Open Food Facts pattern unavailable");
-  }
-
-  // 4. Fallback: OpenLCA demo data pattern
-  if (materials.length === 0) {
-    materials.push(...getOpenLCADemoData());
-  }
-
-  return materials;
 };
 
 // Helper functions for data processing
@@ -379,9 +235,12 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
     const categories = ['concrete', 'steel', 'wood', 'insulation', 'finishes', 'other'];
     const averages: Record<string, number> = {};
     
-    for (const category of categories) {
-      averages[category] = await getIndustryAverageCarbon(category);
-    }
+    const values = await Promise.all(
+      categories.map((category) => getIndustryAverageCarbon(category))
+    );
+    categories.forEach((category, index) => {
+      averages[category] = values[index];
+    });
     
     setIndustryAverages(averages);
   };
@@ -442,11 +301,8 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
       
     } catch (err) {
       console.error("Error fetching real materials data:", err);
-      setError("Failed to load materials from open data sources. Using demo data.");
-      
-      // Fallback to demo data
-      const demoData = getOpenLCADemoData().map(validateMaterial);
-      setMaterials(demoData);
+      setError("Material data sources are currently unavailable. No substitute data was loaded.");
+      setMaterials([]);
     } finally {
       setLoading(false);
     }
@@ -637,7 +493,7 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
             onClick={fetchRealMaterials}
             className="bg-primary text-primary-foreground px-4 py-2 rounded-md mt-4"
           >
-            Retry with Real Data
+            Retry materials search
           </button>
         </div>
       </div>
@@ -653,7 +509,7 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
             Sustainable Materials Hub
           </h2>
           <div className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-            Real Data • Open Sources
+            External and estimated sources
           </div>
         </div>
         <p className="text-muted-foreground">
@@ -744,11 +600,10 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
       {/* Data Source Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
-          🌍 Real Environmental Data
+          🌍 Carbon information and provenance
         </h3>
         <p className="text-blue-800 text-sm">
-          Material carbon footprints sourced from <strong>OpenLCA Nexus</strong>, <strong>USGS Commodity Statistics</strong>, 
-          and <strong>UK Government EPC database</strong>. All data is verified and regularly updated.
+          Material carbon information may come from external datasets or industry estimates. Review the source details for each material before using it as project evidence.
         </p>
       </div>
 

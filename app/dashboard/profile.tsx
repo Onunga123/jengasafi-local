@@ -178,12 +178,6 @@ export function ProfileDisplay({ clientData, session, onEdit }: ProfileDisplayPr
         </div>
       </div>
 
-      {/* Session Info (Debug) */}
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <p className="text-sm text-gray-600">
-          <strong>Logged in as:</strong> {session?.user?.email}
-        </p>
-      </div>
     </motion.div>
   );
 }

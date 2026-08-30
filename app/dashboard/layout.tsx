@@ -21,9 +21,9 @@ export default async function DashboardLayout({
     <Providers>
       <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-cyan-50">
         <Sidebar userRole={session.user.role} />
-        <div className="flex-1 flex flex-col">
+        <div className="min-w-0 flex-1 flex flex-col">
           <DashboardHeader user={session.user} />
-          <main className="flex-1 p-6 overflow-auto">{children}</main>
+          <main className="min-w-0 flex-1 overflow-auto p-3 sm:p-6">{children}</main>
         </div>
       </div>
     </Providers>

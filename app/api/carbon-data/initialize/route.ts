@@ -1,33 +1,31 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import CarbonData from "@/app/models/carbon-data";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import Site from "@/app/models/site";
+import { AuthorizationError, requireAuth } from "@/lib/authorization";
 
 export async function POST(req: Request) {
-  await connectDB();
-
   try {
-    const session = await getServerSession(authOptions);
-    const body = await req.json();
-
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const user = await requireAuth();
+    await connectDB();
+    const body = (await req.json()) as Record<string, unknown>;
 
     if (!body.siteId) {
       return NextResponse.json({ error: "Site ID is required" }, { status: 400 });
     }
 
     // Check existing carbon data
-    const existingData = await CarbonData.findOne({ siteId: body.siteId });
+    const site = await Site.findOne({ _id: body.siteId, userId: user.email }).select("_id");
+    if (!site) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const existingData = await CarbonData.findOne({ siteId: body.siteId, userId: user.email });
     if (existingData) {
       return NextResponse.json(existingData);
     }
 
     const carbonData = await CarbonData.create({
       siteId: body.siteId,
-      userId: session.user.email,
+      userId: user.email,
       reductionTarget: body.reductionTarget || 25,
       focusAreas: body.focusAreas || [],
       baselineEmissions: 0,
@@ -48,8 +46,11 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(carbonData);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (err instanceof AuthorizationError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Error initializing carbon data:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to initialize carbon data" }, { status: 500 });
   }
 }

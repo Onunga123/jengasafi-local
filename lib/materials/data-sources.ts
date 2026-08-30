@@ -20,12 +20,13 @@ export const INDUSTRY_AVERAGES: Record<string, number> = {
 export const getIndustryAverageCarbon = async (category: string): Promise<number> => {
   try {
     const response = await fetch(
-      `https://nexus.openlca.org/api/v1/processes?category=${encodeURIComponent(category)}&limit=1`
+      `/api/materials/external?source=openlca&category=${encodeURIComponent(category)}`
     );
     
     if (response.ok) {
-      const data = await response.json();
-      if (data.data?.length > 0) {
+      const envelope = await response.json();
+      const data = envelope.data;
+      if (data?.data?.length > 0) {
         const process = data.data[0];
         const gwp = process.exchanges?.find((e: any) => e.flow?.flowType === "PRODUCT")?.amount;
         if (gwp) return gwp * 1000;

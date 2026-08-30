@@ -21,7 +21,7 @@ export function MaterialsHeader({ userMetrics, materialsCount }: MaterialsHeader
             Sustainable Materials Hub
           </h1>
           <p className="text-muted-foreground text-lg">
-            Discover {materialsCount}+ verified sustainable materials with real environmental data
+            Explore {materialsCount} materials with available carbon and sustainability information
           </p>
         </div>
 

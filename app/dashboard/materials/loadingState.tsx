@@ -20,7 +20,7 @@ export function LoadingState() {
       </motion.h3>
       
       <p className="text-muted-foreground text-center max-w-md">
-        Fetching real environmental data from OpenLCA Nexus, USGS, and government databases...
+        Loading material data from configured external sources...
       </p>
 
       {/* Loading progress indicators */}

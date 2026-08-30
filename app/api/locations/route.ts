@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { LocationCollection } from '@/lib/auth/dbc/locations';
+import { AuthorizationError, requireRole } from '@/lib/authorization';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
 
 export async function POST(req: Request) {
   try {
+    await requireRole('admin');
     const body = await req.json();
 
     const newLocation = await LocationCollection.addLocation({
@@ -44,6 +46,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, location: newLocation });
   } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('[POST /api/locations] Error:', error);
     return NextResponse.json({ error: 'Failed to create location' }, { status: 500 });
   }

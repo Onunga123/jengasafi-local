@@ -113,13 +113,18 @@ export function MaterialsGrid({
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ delay: index * 0.1 }}
                 whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                className={`bg-white border rounded-xl shadow-sm overflow-hidden cursor-pointer transform transition-all duration-200 ${
+                className={`group relative bg-white border rounded-xl shadow-sm overflow-hidden transform transition-all duration-200 ${
                   isRecommended(material)
                     ? "border-green-300 ring-2 ring-green-100"
                     : "border-border hover:shadow-md"
                 }`}
-                onClick={() => onMaterialSelect(material)}
               >
+                <button
+                  type="button"
+                  aria-label={`Select ${material.name}`}
+                  onClick={() => onMaterialSelect(material)}
+                  className="absolute inset-0 z-10 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-inset"
+                />
                 {/* Recommendation Badge */}
                 {isRecommended(material) && (
                   <div className="bg-green-500 text-white text-xs font-medium px-3 py-1 text-center">
@@ -127,7 +132,7 @@ export function MaterialsGrid({
                   </div>
                 )}
 
-                <div className="p-5">
+                <div className="pointer-events-none relative z-0 p-5">
                   {/* Header */}
                   <div className="flex justify-between items-start mb-3">
                     <h3 className="font-semibold text-foreground text-lg leading-tight">

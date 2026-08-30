@@ -32,7 +32,7 @@ export function ErrorState({ error, onRetry }: ErrorStateProps) {
       </p>
       
       <p className="text-sm text-muted-foreground mb-6 max-w-md">
-        Don't worry! We're showing demo data from OpenLCA so you can continue exploring sustainable material options.
+        External material sources may be temporarily unavailable. We have not substituted unavailable data with fabricated values.
       </p>
 
       <div className="flex gap-4">
@@ -57,7 +57,7 @@ export function ErrorState({ error, onRetry }: ErrorStateProps) {
           className="border-border hover:bg-muted"
         >
           <span>📋</span>
-          Continue with Demo Data
+          Retry source requests
         </Button>
       </div>
 
@@ -67,7 +67,7 @@ export function ErrorState({ error, onRetry }: ErrorStateProps) {
         <ul className="text-sm text-muted-foreground text-left space-y-1">
           <li>• External data sources might be temporarily unavailable</li>
           <li>• Your connection might have been interrupted</li>
-          <li>• We've loaded comprehensive demo data as backup</li>
+          <li>• Material values are shown only when a source responds</li>
         </ul>
       </div>
     </motion.div>

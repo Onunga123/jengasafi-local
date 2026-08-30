@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { 
   Building, 
@@ -44,6 +44,44 @@ export default function ClientInfoModal({ onSave }: ClientInfoModalProps) {
   const { data: session } = useSession();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const previousActiveElement = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const focusableSelector =
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
+
+    dialog?.querySelector<HTMLElement>(focusableSelector)?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        // Onboarding is mandatory until setup completes; Escape must not submit or dismiss it.
+        event.preventDefault();
+        return;
+      }
+
+      if (event.key !== "Tab" || !dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector));
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousActiveElement?.focus();
+    };
+  }, []);
   
   // Profile Data
   const [profile, setProfile] = useState<ProfileFormData>({
@@ -567,12 +605,20 @@ export default function ClientInfoModal({ onSave }: ClientInfoModalProps) {
   const isStep2Valid = sites.every(site => site.name && site.location);
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 flex items-center justify-center overflow-y-auto bg-black/50 z-50 p-4" role="presentation">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-dialog-title"
+        aria-describedby="onboarding-dialog-description"
+        tabIndex={-1}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden"
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
-          <h2 className="text-2xl font-bold mb-2">Welcome to JengaSafi! 🌱</h2>
-          <p className="opacity-90">Let's set up your sustainability tracking profile</p>
+          <h2 id="onboarding-dialog-title" className="text-2xl font-bold mb-2">Welcome to JengaSafi! 🌱</h2>
+          <p id="onboarding-dialog-description" className="opacity-90">Let's set up your sustainability tracking profile</p>
           
           {/* Progress Steps */}
           <div className="flex items-center justify-between mt-6">
@@ -592,7 +638,7 @@ export default function ClientInfoModal({ onSave }: ClientInfoModalProps) {
             ))}
           </div>
           
-          <div className="flex justify-between text-xs mt-2">
+          <div className="flex justify-between text-xs mt-2" aria-live="polite">
             <span className={currentStep >= 1 ? 'font-semibold' : 'opacity-70'}>Profile</span>
             <span className={currentStep >= 2 ? 'font-semibold' : 'opacity-70'}>Sites</span>
             <span className={currentStep >= 3 ? 'font-semibold' : 'opacity-70'}>Complete</span>
@@ -600,7 +646,7 @@ export default function ClientInfoModal({ onSave }: ClientInfoModalProps) {
         </div>
 
         {/* Content */}
-        <div className="p-6 flex-1 overflow-y-auto">
+        <div className="p-6 flex-1 min-h-0 overflow-y-auto" aria-label={`Onboarding step ${currentStep} of 3`}>
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}

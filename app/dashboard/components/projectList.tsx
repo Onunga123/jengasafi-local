@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { requestJson } from "@/lib/client-errors";
 
 interface Project {
   _id?: string;
@@ -30,6 +31,8 @@ export default function ProjectList({
 }: ProjectListProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [newProject, setNewProject] = useState<Partial<Project>>({
     name: "",
     description: "",
@@ -50,28 +53,29 @@ export default function ProjectList({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setIsSaving(true);
     try {
-      const res = await fetch("/api/projects", {
+      const savedProject = await requestJson<Project>("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newProject),
       });
 
-      if (res.ok) {
-        const savedProject = await res.json();
-        onAddProject(savedProject);
-        setShowAddForm(false);
-        setNewProject({
-          name: "",
-          description: "",
-          location: "",
-          startDate: "",
-          endDate: "",
-          siteId: "",
-        });
-      }
+      onAddProject(savedProject);
+      setShowAddForm(false);
+      setNewProject({
+        name: "",
+        description: "",
+        location: "",
+        startDate: "",
+        endDate: "",
+        siteId: "",
+      });
     } catch (err) {
-      console.error("Error creating project:", err);
+      setError(err instanceof Error ? err.message : "Unable to create project.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -79,7 +83,7 @@ export default function ProjectList({
     <div className="bg-white p-6 rounded-2xl shadow-md">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-xl font-bold text-emerald-700">
-          Project Portfolio
+          Projects
         </h3>
         <button
           onClick={() => setShowAddForm(true)}
@@ -96,8 +100,9 @@ export default function ProjectList({
           className="mb-6 p-6 bg-gray-50 rounded-lg border border-gray-200"
         >
           <h4 className="font-medium text-emerald-800 mb-4 text-lg">
-            Add New Project
+            Add Project
           </h4>
+          {error && <p role="alert" className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Project Name */}
@@ -224,7 +229,7 @@ export default function ProjectList({
         </motion.div>
       )}
 
-      {/* Projects Grid (unchanged) */}
+      {/* Project portfolio */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map((project) => (
           <motion.div
@@ -260,7 +265,7 @@ export default function ProjectList({
                   d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
-              {project.location}
+              Project location: {project.location}
             </p>
             <p className="text-sm text-gray-700 mb-4 line-clamp-3">
               {project.description}
@@ -300,7 +305,7 @@ export default function ProjectList({
             />
           </svg>
           <p>No projects yet.</p>
-          <p className="mt-1">Add your first project to get started.</p>
+          <p className="mt-1">Create a project and connect it to one of your construction sites.</p>
         </div>
       )}
     </div>

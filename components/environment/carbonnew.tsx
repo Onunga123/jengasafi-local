@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import {
   NetEmissionsTrend,
   EmissionsVsSavings,
   PredictiveAnalysis,
 } from "../carbonCharts";
-import { Helmet } from "react-helmet";
 import { ActivityLog } from "../carbonActivity";
 import { DataSourceCredibility } from "../dataCredibility";
 import { CarbonData } from "@/lib/carbonCalculation";
@@ -29,7 +27,6 @@ trend: {
 
 // ---------- Main Dashboard Component ----------
 export default function EnvironmentalMonitoringDashboard({ siteId }: Props) {
-  const { data: session } = useSession();
   const [carbonData, setCarbonData] = useState<CarbonData>({
     activities: [],
     totalEmissions: 0,
@@ -42,15 +39,14 @@ export default function EnvironmentalMonitoringDashboard({ siteId }: Props) {
   const [insights, setInsights] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dataSources, setDataSources] = useState({
-    kenyaPower: { lastUpdated: "", credibility: "High" },
-    unfccc: { lastUpdated: "", credibility: "Verified" },
-    localData: { lastUpdated: "", credibility: "Real-time" },
+    kenyaPower: { lastUpdated: "", credibility: "External dataset" },
+    unfccc: { lastUpdated: "", credibility: "External dataset" },
+    localData: { lastUpdated: "", credibility: "Recorded activity" },
   });
 
   // Fetch data on component mount
   useEffect(() => {
-    fetchCarbonData();
-    fetchInsights();
+    void Promise.all([fetchCarbonData(), fetchInsights()]);
     fetchDataSources();
 
     const interval = setInterval(fetchCarbonData, 30000);
@@ -83,31 +79,27 @@ export default function EnvironmentalMonitoringDashboard({ siteId }: Props) {
     setDataSources({
       kenyaPower: {
         lastUpdated: new Date().toISOString(),
-        credibility: "High - Kenya Power Live Grid Mix",
+        credibility: "External dataset",
       },
       unfccc: {
         lastUpdated: new Date().toISOString(),
-        credibility: "Verified - UNFCCC Dataset 2024",
+        credibility: "External dataset",
       },
       localData: {
         lastUpdated: new Date().toISOString(),
-        credibility: "Real-time - Site Sensors",
+        credibility: "Recorded activity",
       },
     });
   };
 
   return (
     <>
-      <Helmet>
-        <title>Carbon Tracker - JengaSafi</title>
-      </Helmet>
-
       <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Header */}
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Carbon Footprint Tracker
+              Carbon Intelligence
             </h1>
             <p className="text-muted-foreground">
               Monitor emissions and savings from construction activities
@@ -139,7 +131,7 @@ export default function EnvironmentalMonitoringDashboard({ siteId }: Props) {
           {/* Predictive Analysis Chart */}
          <PredictiveAnalysis carbonData={carbonData} />
 
-          {/* AI-Powered Insights */}
+          {/* Activity-based insights */}
           <AIInsights insights={insights} isLoading={isLoading} />
 
           {/* Activity Log */}

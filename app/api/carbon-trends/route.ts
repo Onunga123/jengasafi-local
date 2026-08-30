@@ -1,31 +1,42 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { connectDB } from "@/lib/db";
 import CarbonActivity from "@/app/models/CarbonActivity";
 import { fetchEmissionFactors } from "@/lib/emissions";
 import { generateForecast } from "@/lib/forecast";
 import { CarbonActivityType } from "@/types/CarbonActivity";
+import { AuthorizationError, requireAuth } from "@/lib/authorization";
+import { calculateActivityTotals } from "@/lib/carbonCalculation";
 
 const clean = (n: any) => (typeof n === "number" && isFinite(n) ? n : 0);
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const user = await requireAuth();
 
     await connectDB();
 
-    // All activities tied to the logged-in user
+    const { searchParams } = new URL(req.url);
+    const siteId = searchParams.get("siteId");
+
+    // Scope the response to a site when requested; otherwise preserve the
+    // dashboard's all-user activity summary.
     const activities = await CarbonActivity.find({
-      userId: session.user.email,
+      userId: user.email,
+      ...(siteId ? { siteId } : {}),
     }).sort({ createdAt: 1 });
 
     const factors = await fetchEmissionFactors();
+    const calculationActivities = activities.map((act) => ({
+      id: String(act._id),
+      timestamp: new Date(act.createdAt).toISOString(),
+      description: act.description ?? "",
+      type: act.type,
+      value: clean(act.value),
+      sustainableEF: act.sustainableEF,
+      standardEF: act.standardEF,
+      fuelType: act.fuelType,
+    }));
 
-    let totalEmissions = 0;
-    let totalSavings = 0;
     const trend: any[] = [];
 
     activities.forEach((act) => {
@@ -70,9 +81,6 @@ export async function GET() {
         }
       }
 
-      totalEmissions += emissions;
-      totalSavings += savings;
-
       trend.push({
         time: act.createdAt,
         emissions: clean(emissions),
@@ -81,17 +89,22 @@ export async function GET() {
       });
     });
 
+    const totals = calculateActivityTotals(calculationActivities, factors);
+
     const forecast = generateForecast(trend);
 
     return NextResponse.json({
       activities,
-      totalEmissions: clean(totalEmissions),
-      totalSavings: clean(totalSavings),
-      netEmissions: clean(totalEmissions - totalSavings),
+      totalEmissions: clean(totals.emissions),
+      totalSavings: clean(totals.savings),
+      netEmissions: clean(totals.emissions - totals.savings),
       trend,
       forecast,
     });
   } catch (err) {
+    if (err instanceof AuthorizationError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("❌ Error in /api/carbon-trends:", err);
     return NextResponse.json(
       {

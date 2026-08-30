@@ -141,14 +141,14 @@ export function AIInsights({ insights, isLoading, carbonData }: AIInsightsProps)
             </div>
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-800">AI Carbon Insights</h3>
-            <p className="text-sm text-gray-600 mt-1">Real-time analysis & recommendations</p>
+            <h3 className="text-xl font-bold text-gray-800">Carbon insights</h3>
+            <p className="text-sm text-gray-600 mt-1">Recommendations based on recorded project activity</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2 px-3 py-1.5 bg-white/80 rounded-full border border-gray-200 shadow-sm">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-xs font-semibold text-gray-700">Live Analysis</span>
+          <span className="text-xs font-semibold text-gray-700">Activity-based</span>
           <Sparkles className="w-3 h-3 text-yellow-500" />
         </div>
       </div>
@@ -244,7 +244,7 @@ export function AIInsights({ insights, isLoading, carbonData }: AIInsightsProps)
                         </div>
                         
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-600">AI Confidence</span>
+                          <span className="text-gray-600">Signal strength</span>
                           <div className="w-20 bg-gray-200 rounded-full h-2">
                             <div 
                               className="bg-blue-500 h-2 rounded-full transition-all duration-500"
@@ -303,7 +303,7 @@ export function AIInsights({ insights, isLoading, carbonData }: AIInsightsProps)
             <p className="text-sm text-gray-500 max-w-sm mx-auto">
               {selectedCategory !== 'all' 
                 ? `No ${selectedCategory} insights found. Try selecting a different category.`
-                : 'Add carbon activities to generate AI-powered insights and recommendations.'
+                : 'Add carbon activities to generate project recommendations.'
               }
             </p>
           </div>
@@ -322,13 +322,13 @@ export function AIInsights({ insights, isLoading, carbonData }: AIInsightsProps)
               <div className="text-lg font-bold text-green-600">
                 {enhancedInsights.filter(i => i.type === 'achievement').length}
               </div>
-              <div className="text-xs text-gray-600">Achievements</div>
+                <div className="text-xs text-gray-600">Positive signals</div>
             </div>
             <div>
               <div className="text-lg font-bold text-blue-600">
-                {Math.round(enhancedInsights.reduce((acc, i) => acc + i.confidence, 0) / enhancedInsights.length)}%
+                {enhancedInsights.filter(i => i.priority === 'high').length}
               </div>
-              <div className="text-xs text-gray-600">Avg Confidence</div>
+              <div className="text-xs text-gray-600">High priority</div>
             </div>
           </div>
         </div>

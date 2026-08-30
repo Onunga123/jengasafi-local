@@ -213,7 +213,7 @@ export function ActivityLog({ activities }: ActivityLogProps) {
               {summary.activityCount} activities
             </span>
           </h3>
-          <p className="text-sm text-gray-600 mt-1">Real-time tracking of emissions and savings</p>
+          <p className="text-sm text-gray-600 mt-1">Recorded emissions and carbon savings from construction activity</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -294,7 +294,7 @@ export function ActivityLog({ activities }: ActivityLogProps) {
             
             return (
               <div
-                key={activity.id}
+                key={activity.id || `${activity.timestamp.toISOString()}-${activity.type}-${activity.value}-${activity.description}`}
                 className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200/60 p-4 hover:shadow-md transition-all duration-200"
               >
                 <div className="flex items-start justify-between">

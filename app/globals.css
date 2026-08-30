@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-brand: 16 185 129;
+  --color-brand-strong: 4 120 87;
+  --color-surface: 255 255 255;
+  --color-canvas: 248 250 252;
+  --color-text: 15 23 42;
+  --color-muted: 71 85 105;
+  --color-border: 226 232 240;
+  --color-success: 22 163 74;
+  --color-warning: 217 119 6;
+  --color-danger: 220 38 38;
+  --color-info: 37 99 235;
+}
+
+@layer components {
+  .app-surface { @apply rounded-xl border bg-white shadow-sm; border-color: rgb(var(--color-border)); }
+  .focus-ring { @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2; }
+}
+
 /* --- Global reset --- */
 body {
   @apply bg-gradient-to-b from-white via-gray-50 to-green-50 text-gray-900 antialiased;

@@ -17,7 +17,7 @@ interface DataSourceCredibilityProps {
 export function DataSourceCredibility({ dataSources }: DataSourceCredibilityProps) {
   return (
     <div className="bg-muted/50 p-4 rounded-lg border">
-      <h4 className="font-semibold text-sm mb-2">Data Sources & Credibility</h4>
+      <h4 className="font-semibold text-sm mb-2">Data provenance</h4>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
         <div className="flex items-center space-x-2">
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>

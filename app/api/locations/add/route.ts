@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { LocationCollection } from '@/lib/auth/dbc/locations';
+import { AuthorizationError, requireRole } from '@/lib/authorization';
 
 export async function POST(request: Request) {
   try {
+    await requireRole('admin');
     const body = await request.json();
     const {
       name,
@@ -39,6 +41,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ message: 'Location added', location: newLocation });
   } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Add Location Error:', error);
     return NextResponse.json(
       { error: 'Failed to add location' },

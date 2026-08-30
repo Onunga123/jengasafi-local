@@ -159,7 +159,7 @@ export function PredictiveAnalysis({ carbonData }: CarbonChartsProps) {
             {isForecast ? (
               <>
                 <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
-                <span className="text-sm font-semibold text-purple-600">AI Forecast</span>
+                <span className="text-sm font-semibold text-purple-600">Forecast</span>
               </>
             ) : (
               <>
@@ -220,13 +220,13 @@ export function PredictiveAnalysis({ carbonData }: CarbonChartsProps) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            Emissions Forecast & AI Trends
+            Emissions forecast
             <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-purple-500 to-blue-600 text-white text-xs font-semibold rounded-full">
               <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-              AI Predictive
+              Forecast
             </span>
           </h3>
-          <p className="text-sm text-gray-600 mt-1">Machine learning-powered emissions forecasting</p>
+          <p className="text-sm text-gray-600 mt-1">A projection based on the recorded trend. Forecasts are not guaranteed outcomes.</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -344,7 +344,7 @@ export function PredictiveAnalysis({ carbonData }: CarbonChartsProps) {
               strokeDasharray="5 5"
               dot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }}
               activeDot={{ r: 6, stroke: "#8b5cf6", strokeWidth: 2, fill: "#fff" }}
-              name="AI Forecast"
+              name="Forecast"
               data={enhancedData.filter((d: any) => d.isForecast)}
             />
           </AreaChart>
@@ -388,7 +388,7 @@ export function PredictiveAnalysis({ carbonData }: CarbonChartsProps) {
         
         <div className="flex items-center gap-2 text-xs">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          <span className="font-medium">Live forecasting active</span>
+          <span className="font-medium">Forecast based on available activity data</span>
         </div>
       </div>
     </div>

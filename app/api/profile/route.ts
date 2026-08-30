@@ -2,21 +2,15 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import SustainabilityProfile from "@/app/models/profile";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { AuthorizationError, requireAuth } from "@/lib/authorization";
 
 export async function GET() {
-  await connectDB();
-  
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const user = await requireAuth();
+    await connectDB();
 
-    const profile = await SustainabilityProfile.findOne({ 
-      email: session.user.email 
+    const profile = await SustainabilityProfile.findOne({
+      email: user.email
     });
 
     if (!profile) {
@@ -24,28 +18,26 @@ export async function GET() {
     }
 
     return NextResponse.json(profile);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (err instanceof AuthorizationError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Error fetching profile:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
-  await connectDB();
-  
   try {
-    const session = await getServerSession(authOptions);
+    const user = await requireAuth();
+    await connectDB();
     const body = await req.json();
-
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     // Extract only the fields we want to save
     const profileData = {
-      userId: session.user.email,
-      name: body.name,
-      email: body.email,
+      userId: user.email,
+      name: body.name || user.name,
+      email: user.email,
       company: body.company || "",
       role: body.role || "",
       sustainabilityGoals: body.sustainabilityGoals || "",
@@ -56,14 +48,57 @@ export async function POST(req: Request) {
 
     // Update or create profile
     const profile = await SustainabilityProfile.findOneAndUpdate(
-      { email: session.user.email },
+      { email: user.email },
       profileData,
       { new: true, upsert: true, runValidators: true }
     );
 
     return NextResponse.json(profile);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (err instanceof AuthorizationError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Error saving profile:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save profile" }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const user = await requireAuth();
+    await connectDB();
+    const body = (await req.json()) as Record<string, unknown>;
+
+    const profile = await SustainabilityProfile.findOneAndUpdate(
+      { email: user.email },
+      {
+        $set: {
+          userId: user.email,
+          name: body.name || user.name,
+          email: user.email,
+          company: body.company || "",
+          role: body.role || "",
+          sustainabilityGoals: body.sustainabilityGoals || "",
+          reductionTarget: body.reductionTarget ?? 25,
+          focusAreas: Array.isArray(body.focusAreas) ? body.focusAreas : [],
+          ...(typeof body.setupCompleted === "boolean"
+            ? { setupCompleted: body.setupCompleted }
+            : {}),
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(profile);
+  } catch (err: unknown) {
+    if (err instanceof AuthorizationError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    console.error("Error updating profile:", err);
+    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
   }
 }

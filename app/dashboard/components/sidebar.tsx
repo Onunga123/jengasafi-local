@@ -1,16 +1,15 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Gauge,
-  Settings,
   FileBarChart,
-  ClipboardList,
   Package,
   Hammer,
   Building,
-  Factory,
-
+  FolderKanban,
+  Leaf,
+  ListChecks,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -24,13 +23,25 @@ interface NavItem {
 
 export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentHash, setCurrentHash] = useState("");
   const [ecoTip, setEcoTip] = useState(
     "Today's eco-tip: Use recycled building materials when possible"
   );
-  const [currentTime, setCurrentTime] = useState(new Date());
+  // Keep the server render and the first client render deterministic. The
+  // actual clock is initialized after hydration in the effect below.
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
-  // Update time every minute
   useEffect(() => {
+    const syncHash = () => setCurrentHash(window.location.hash);
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
+
+  useEffect(() => {
+    setCurrentTime(new Date());
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000);
@@ -62,9 +73,19 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
 
   const baseNavItems: NavItem[] = [
     {
-      name: "Project Dashboard",
+      name: "Overview",
       href: "/dashboard",
       icon: <Gauge className="h-5 w-5" />,
+    },
+    {
+      name: "Projects",
+      href: "/dashboard?tab=projects",
+      icon: <FolderKanban className="h-5 w-5" />,
+    },
+    {
+      name: "Carbon Intelligence",
+      href: "/dashboard#carbon-intelligence",
+      icon: <Leaf className="h-5 w-5" />,
     },
     {
       name: "Materials",
@@ -72,54 +93,56 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
       icon: <Package className="h-5 w-5 text-amber-800" />,
     },
     {
-      name: "Project Reports",
+      name: "EcoTasks",
+      href: "/dashboard?tab=eco-tasks",
+      icon: <ListChecks className="h-5 w-5" />,
+    },
+    {
+      name: "Reports",
       href: "/dashboard/reports",
       icon: <FileBarChart className="h-5 w-5 text-indigo-600" />,
     },
   ];
 
-  const adminNavItems: NavItem[] = [
-    {
-      name: "Site Administration",
-      href: "/dashboard/admin",
-      icon: <Settings className="h-5 w-5" />,
-      roles: ["admin", "supervisor"],
-    },
-    {
-      name: "Construction Logs",
-      href: "/dashboard/activity-log",
-      icon: <ClipboardList className="h-5 w-5 text-rose-600" />,
-      roles: ["admin"],
-    },
-    {
-      name: "Facilities",
-      href: "/dashboard/facilities",
-      icon: <Factory className="h-5 w-5 text-gray-600" />,
-      roles: ["admin", "supervisor"],
-    },
-  ];
-
-  // Filter nav items based on user role
-  const filteredNavItems = [
-    ...baseNavItems,
-    ...adminNavItems.filter(
-      (item) => !item.roles || item.roles.includes(userRole)
-    ),
-  ];
+  // Only expose dashboard routes that currently exist in the frontend.
+  const filteredNavItems = baseNavItems;
 
   // Format time
-  const formattedTime = currentTime.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const formattedDate = currentTime.toLocaleDateString([], {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+  const formattedTime = currentTime
+    ? currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "--:-- --";
+  const formattedDate = currentTime
+    ? currentTime.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })
+    : "Loading date";
+
+  const isItemActive = (item: NavItem) => {
+    const [itemPath, itemQuery] = item.href.split("?");
+    if (pathname !== itemPath) return false;
+    if (itemQuery) return searchParams?.get("tab") === new URLSearchParams(itemQuery).get("tab");
+    if (item.href.includes("#")) return currentHash === "#carbon-intelligence";
+    return !searchParams?.get("tab") && currentHash !== "#carbon-intelligence";
+  };
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen sticky top-0">
+    <>
+      <button
+        type="button"
+        aria-label="Open dashboard navigation"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen(true)}
+        className="fixed left-4 top-4 z-40 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white shadow-lg md:hidden"
+      >
+        Menu
+      </button>
+      {isOpen && (
+        <button
+          type="button"
+          aria-label="Close dashboard navigation"
+          onClick={() => setIsOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+        />
+      )}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-white border-r border-gray-200 flex flex-col transition-transform duration-200 md:sticky md:top-0 md:z-auto md:translate-x-0 md:h-screen ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
       {/* Header with construction project info */}
       <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-700 to-emerald-800">
         <div className="flex items-center justify-between">
@@ -147,15 +170,17 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
           <Link
             key={item.name}
             href={item.href}
+            onClick={() => setIsOpen(false)}
+            aria-current={isItemActive(item) ? "page" : undefined}
             className={`flex items-center px-4 py-3 rounded-lg transition-all group relative ${
-              pathname === item.href
+              isItemActive(item)
                 ? "bg-green-50 text-green-700 font-medium shadow-inner"
                 : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             <span
               className={`p-1.5 rounded-lg ${
-                pathname === item.href
+                isItemActive(item)
                   ? "bg-green-100 text-green-700"
                   : "bg-gray-100 text-gray-500 group-hover:bg-green-100 group-hover:text-green-600"
               }`}
@@ -172,7 +197,7 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
             )}
 
             {/* Active indicator */}
-            {pathname === item.href && (
+            {isItemActive(item) && (
               <span className="ml-2 h-2 w-2 rounded-full bg-green-500"></span>
             )}
           </Link>
@@ -191,6 +216,7 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
           </div>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

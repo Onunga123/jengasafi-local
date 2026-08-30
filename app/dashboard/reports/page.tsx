@@ -21,16 +21,10 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { calculateEfficiencyScore } from "@/lib/carbonCalculation";
 
 interface ReportFormData {
   siteId: string;
-  reportPeriod: string;
-  startDate: string;
-  endDate: string;
-  reportType: "comprehensive" | "executive" | "compliance" | "sustainability";
-  includeCharts: boolean;
-  includeForecast: boolean;
-  compareToPrevious: boolean;
 }
 
 interface Site {
@@ -39,12 +33,20 @@ interface Site {
   location: string;
 }
 
+interface Project {
+  _id: string;
+  name: string;
+  siteId: string;
+  location?: string;
+}
+
 interface CarbonData {
   totalEmissions: number;
   totalSavings: number;
   netEmissions: number;
   activities: any[];
   trend: any[];
+  forecast?: any[];
 }
 
 export default function GenerateReportPage() {
@@ -53,16 +55,10 @@ export default function GenerateReportPage() {
   
   const [formData, setFormData] = useState<ReportFormData>({
     siteId: "",
-    reportPeriod: "last-30-days",
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
-    reportType: "comprehensive",
-    includeCharts: true,
-    includeForecast: true,
-    compareToPrevious: true,
   });
 
   const [sites, setSites] = useState<Site[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [carbonData, setCarbonData] = useState<CarbonData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,20 +71,25 @@ export default function GenerateReportPage() {
     fetchSites();
   }, []);
 
-  // Fetch carbon data when site or date range changes
+  // Fetch carbon data when the selected site changes
   useEffect(() => {
     if (formData.siteId) {
       fetchCarbonData();
     }
-  }, [formData.siteId, formData.startDate, formData.endDate]);
+  }, [formData.siteId]);
 
   const fetchSites = async () => {
     try {
-      const response = await fetch('/api/sites');
-      const data = await response.json();
+      const [sitesResponse, projectsResponse] = await Promise.all([
+        fetch('/api/sites'),
+        fetch('/api/projects'),
+      ]);
+      const data = await sitesResponse.json();
+      const projectData = await projectsResponse.json();
   
       // since API returns array directly
       setSites(data || []);
+      setProjects(projectData || []);
   
       if (data?.length > 0) {
         setFormData(prev => ({ ...prev, siteId: data[0]._id }));
@@ -105,7 +106,7 @@ export default function GenerateReportPage() {
   const fetchCarbonData = async () => {
     try {
       const response = await fetch(
-        `/api/carbon-trends?siteId=${formData.siteId}&startDate=${formData.startDate}&endDate=${formData.endDate}`
+      `/api/carbon-trends?siteId=${formData.siteId}`
       );
       const data = await response.json();
       setCarbonData(data);
@@ -133,43 +134,14 @@ export default function GenerateReportPage() {
       totalActivities,
       emissionsActivities,
       savingsActivities,
-      efficiency: data.totalSavings > 0 ? (data.totalSavings / (data.totalEmissions + data.totalSavings)) * 100 : 0,
-      period: formData.reportPeriod,
-      site: sites.find(s => s._id === formData.siteId)?.name || 'Unknown Site'
+      efficiency: calculateEfficiencyScore(data),
+      site: sites.find(s => s._id === formData.siteId)?.name || 'Unknown Site',
+      project: projects.find((project) => project.siteId === formData.siteId)?.name || null
     });
   };
 
   const handleChange = (field: keyof ReportFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handlePeriodChange = (period: string) => {
-    const today = new Date();
-    let startDate = new Date();
-
-    switch (period) {
-      case "last-7-days":
-        startDate.setDate(today.getDate() - 7);
-        break;
-      case "last-30-days":
-        startDate.setDate(today.getDate() - 30);
-        break;
-      case "last-90-days":
-        startDate.setDate(today.getDate() - 90);
-        break;
-      case "last-year":
-        startDate.setFullYear(today.getFullYear() - 1);
-        break;
-      default:
-        startDate = today;
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      reportPeriod: period,
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: today.toISOString().split('T')[0]
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,10 +154,8 @@ export default function GenerateReportPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          carbonData,
-          generatedBy: session?.user?.email,
-          generatedAt: new Date().toISOString()
+          siteId: formData.siteId,
+          projectId: projects.find((project) => project.siteId === formData.siteId)?._id,
         }),
       });
 
@@ -209,21 +179,6 @@ export default function GenerateReportPage() {
       setError("Failed to generate report. Please try again.");
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const getReportTypeDescription = (type: string) => {
-    switch (type) {
-      case "comprehensive":
-        return "Detailed analysis with all metrics, charts, and recommendations";
-      case "executive":
-        return "High-level summary for management and stakeholders";
-      case "compliance":
-        return "Formatted for regulatory compliance and auditing";
-      case "sustainability":
-        return "Focus on environmental impact and sustainability goals";
-      default:
-        return "";
     }
   };
 
@@ -306,99 +261,14 @@ export default function GenerateReportPage() {
                   </select>
                 </div>
 
-                {/* Report Period */}
-                <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-200">
-                  <label className=" text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-blue-600" />
-                    Report Period
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                    {[
-                      { value: "last-7-days", label: "Last 7 Days" },
-                      { value: "last-30-days", label: "Last 30 Days" },
-                      { value: "last-90-days", label: "Last 90 Days" },
-                      { value: "last-year", label: "Last Year" },
-                    ].map((period) => (
-                      <button
-                        key={period.value}
-                        type="button"
-                        onClick={() => handlePeriodChange(period.value)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                          formData.reportPeriod === period.value
-                            ? 'bg-blue-500 text-white shadow-sm'
-                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        {period.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Start Date</label>
-                      <input
-                        type="date"
-                        value={formData.startDate}
-                        onChange={(e) => handleChange('startDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">End Date</label>
-                      <input
-                        type="date"
-                        value={formData.endDate}
-                        onChange={(e) => handleChange('endDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Report Type */}
-                <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-200">
-                  <label className=" text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
                     <FileText className="w-4 h-4 text-blue-600" />
-                    Report Type
-                  </label>
-                  <select
-                    value={formData.reportType}
-                    onChange={(e) => handleChange('reportType', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                  >
-                    <option value="comprehensive">Comprehensive Report</option>
-                    <option value="executive">Executive Summary</option>
-                    <option value="compliance">Compliance Report</option>
-                    <option value="sustainability">Sustainability Report</option>
-                  </select>
-                  <p className="text-xs text-gray-600">
-                    {getReportTypeDescription(formData.reportType)}
-                  </p>
-                </div>
-
-                {/* Report Options */}
-                <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-200">
-                  <label className="block text-sm font-semibold text-gray-800 mb-3">
-                    Report Options
-                  </label>
-                  <div className="space-y-3">
-                    {[
-                      { id: 'includeCharts', label: 'Include Charts & Visualizations', icon: BarChart3 },
-                      { id: 'includeForecast', label: 'Include AI Forecast & Trends', icon: TrendingUp },
-                      { id: 'compareToPrevious', label: 'Compare to Previous Period', icon: TrendingDown },
-                    ].map((option) => (
-                      <label key={option.id} className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData[option.id as keyof ReportFormData] as boolean}
-                          onChange={(e) => handleChange(option.id as keyof ReportFormData, e.target.checked)}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                        <option.icon className="w-4 h-4 text-gray-600" />
-                        <span className="text-sm text-gray-700">{option.label}</span>
-                      </label>
-                    ))}
+                    Report contents
                   </div>
+                  <p className="mt-2 text-sm text-gray-600">
+                    The current PDF includes the selected site, stored carbon emissions, the authenticated report creator, and the server generation time.
+                  </p>
                 </div>
 
                 {/* Submit Button */}
@@ -446,7 +316,10 @@ export default function GenerateReportPage() {
                   <div className="bg-gray-50 rounded-lg p-3">
                     <div className="text-sm text-gray-600">Site</div>
                     <div className="font-semibold text-gray-800">{reportPreview.site}</div>
-                    <div className="text-xs text-gray-500 capitalize">{reportPreview.period.replace(/-/g, ' ')}</div>
+                    {reportPreview.project && (
+                      <div className="mt-1 text-sm text-gray-600">Project: <span className="font-medium text-gray-800">{reportPreview.project}</span></div>
+                    )}
+                    <div className="text-xs text-gray-500">Current stored activity data</div>
                   </div>
 
                   {/* Key Metrics */}
@@ -505,12 +378,12 @@ export default function GenerateReportPage() {
                   <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
                     <div className="text-xs text-purple-600 font-medium mb-1">Efficiency Score</div>
                     <div className="text-xl font-bold text-purple-700">
-                      {reportPreview.efficiency.toFixed(1)}%
+                      {reportPreview.efficiency}
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                       <div 
                         className="bg-purple-500 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(reportPreview.efficiency, 100)}%` }}
+                        style={{ width: `${reportPreview.efficiency === "A+" ? 100 : reportPreview.efficiency === "A" ? 75 : reportPreview.efficiency === "B" ? 50 : reportPreview.efficiency === "C" ? 25 : 0}%` }}
                       />
                     </div>
                   </div>

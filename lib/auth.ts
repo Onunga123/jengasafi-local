@@ -4,7 +4,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import User from "@/app/models/user";
 import { connectDB } from "./db";
-import { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
   interface User {
@@ -17,11 +16,6 @@ declare module "next-auth" {
   interface Session {
     user: User;
   }
-}
-
-// Ensure environment variables are set
-if (!process.env.JWT_SECRET) {
-  throw new Error("JWT_SECRET is not defined in environment variables");
 }
 
 export const authOptions: NextAuthOptions = {

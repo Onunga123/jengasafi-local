@@ -2,19 +2,21 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import CarbonActivity from "@/app/models/CarbonActivity";
 import { CarbonActivityType } from "@/types/CarbonActivity";
+import { AuthorizationError, requireAuth } from "@/lib/authorization";
 /**
  * /api/gamification
  * Returns gamified metrics: points, badges, streaks, leaderboard rank.
  */
 export async function GET(req: Request) {
   try {
+    const user = await requireAuth();
     await connectDB();
 
     const { searchParams } = new URL(req.url);
     const siteId = searchParams.get("siteId") || "default";
 
     // Fetch activities
-    const activities = await CarbonActivity.find({ siteId }).sort({
+    const activities = await CarbonActivity.find({ userId: user.email, siteId }).sort({
       createdAt: 1,
     });
 
@@ -70,6 +72,7 @@ export async function GET(req: Request) {
 
     // Leaderboard rank (example: compare with all sites)
     const allSites = await CarbonActivity.aggregate([
+      { $match: { userId: user.email } },
       { $group: { _id: "$siteId", total: { $sum: "$value" } } },
       { $sort: { total: -1 } },
     ]);
@@ -88,6 +91,7 @@ export async function GET(req: Request) {
           : "Start a new streak today by logging an activity.",
     });
   } catch (err) {
+    if (err instanceof AuthorizationError) return NextResponse.json({ error: err.message }, { status: err.status });
     console.error("❌ Error in /api/gamification:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

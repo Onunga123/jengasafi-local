@@ -22,11 +22,11 @@ export function KPISummary({ carbonData, isLoading }: KPISummaryProps) {
           </div>
           {!isLoading && carbonData.totalEmissions > 0 && (
             <div className="bg-destructive/10 text-destructive text-xs px-2 py-1 rounded">
-              Live
+              Recorded
             </div>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mt-2">Real-time tracking</p>
+        <p className="text-xs text-muted-foreground mt-2">Recorded project activity</p>
       </div>
       
       {/* Carbon Savings */}
@@ -44,7 +44,7 @@ export function KPISummary({ carbonData, isLoading }: KPISummaryProps) {
             </div>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mt-2">Verified reductions</p>
+        <p className="text-xs text-muted-foreground mt-2">Calculated from recorded activity</p>
       </div>
 
       {/* Net Emissions */}
@@ -68,7 +68,7 @@ export function KPISummary({ carbonData, isLoading }: KPISummaryProps) {
         <p className="text-3xl font-bold text-blue-600">
           {isLoading ? '...' : calculateEfficiencyScore(carbonData)}
         </p>
-        <p className="text-xs text-muted-foreground mt-2">AI-powered rating</p>
+        <p className="text-xs text-muted-foreground mt-2">Calculated efficiency band</p>
       </div>
     </div>
   );
