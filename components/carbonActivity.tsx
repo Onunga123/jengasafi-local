@@ -15,7 +15,6 @@ import {
   Clock,
   Filter,
   Search,
-  Download,
   Shield,
   CheckCircle,
   AlertCircle
@@ -255,9 +254,6 @@ export function ActivityLog({ activities }: ActivityLogProps) {
             <option value="lowest">Lowest Impact</option>
           </select>
           
-          <button className="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-            <Download className="w-4 h-4 text-gray-600" />
-          </button>
         </div>
       </div>
 

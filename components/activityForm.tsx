@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { authoritativeEmissionFactors } from "@/lib/emissionFactors";
 import { 
   Calculator, 
   Info, 
@@ -22,6 +23,7 @@ import {
 interface ActivityFormProps {
   siteId: string;
   onActivityAdded: () => void;
+  onActivityError: () => void;
 }
 
 interface NewActivityState {
@@ -33,28 +35,7 @@ interface NewActivityState {
   standardEF: string;
 }
 
-// Emission factors (kg CO₂ per unit)
-const EMISSION_FACTORS = {
-  energy: {
-    grid: 0.85, // kg CO₂ per kWh (Kenya grid average)
-    diesel: 2.68 // kg CO₂ per liter
-  },
-  transport: {
-    truck: 0.21, // kg CO₂ per km (average truck)
-    van: 0.18    // kg CO₂ per km (average van)
-  },
-  machinery: {
-    diesel: 2.68 // kg CO₂ per liter
-  },
-  waste: 0.5,    // kg CO₂ per kg (landfill emissions)
-  water: 0.34,   // kg CO₂ per m³ (water treatment)
-  material: {
-    standard: 300, // kg CO₂ per ton (average concrete)
-    sustainable: 150 // kg CO₂ per ton (sustainable concrete)
-  }
-};
-
-export function ActivityForm({ siteId, onActivityAdded }: ActivityFormProps) {
+export function ActivityForm({ siteId, onActivityAdded, onActivityError }: ActivityFormProps) {
   const [newActivity, setNewActivity] = useState<NewActivityState>({
     type: "energy",
     value: "",
@@ -136,28 +117,30 @@ export function ActivityForm({ siteId, onActivityAdded }: ActivityFormProps) {
 
     switch (newActivity.type) {
       case "energy":
-        const energyEF = EMISSION_FACTORS.energy[newActivity.fuelType as keyof typeof EMISSION_FACTORS.energy] || 0;
+        const energyEF = newActivity.fuelType === "diesel"
+          ? authoritativeEmissionFactors.energyDiesel
+          : authoritativeEmissionFactors.energyGrid;
         emissions = value * energyEF;
         calculationText = `Energy consumption × Emission factor`;
         formula = `${value} ${unit} × ${energyEF} kg CO₂/${unit} = ${emissions.toFixed(2)} kg CO₂`;
         break;
 
       case "transport":
-        const transportEF = EMISSION_FACTORS.transport.truck;
+        const transportEF = authoritativeEmissionFactors.transport;
         emissions = value * transportEF;
         calculationText = `Distance traveled × Transport emission factor`;
         formula = `${value} ${unit} × ${transportEF} kg CO₂/${unit} = ${emissions.toFixed(2)} kg CO₂`;
         break;
 
       case "machinery":
-        const machineryEF = EMISSION_FACTORS.machinery.diesel;
+        const machineryEF = authoritativeEmissionFactors.fuelDiesel;
         emissions = value * machineryEF;
         calculationText = `Fuel consumed × Diesel emission factor`;
         formula = `${value} ${unit} × ${machineryEF} kg CO₂/${unit} = ${emissions.toFixed(2)} kg CO₂`;
         break;
 
       case "renewable":
-        const gridEF = EMISSION_FACTORS.energy.grid;
+        const gridEF = authoritativeEmissionFactors.energyGrid;
         savings = value * gridEF;
         calculationText = `Renewable energy × Grid emission factor avoided`;
         formula = `${value} ${unit} × ${gridEF} kg CO₂/${unit} = ${savings.toFixed(2)} kg CO₂ saved`;
@@ -174,27 +157,27 @@ export function ActivityForm({ siteId, onActivityAdded }: ActivityFormProps) {
         break;
 
       case "recycling":
-        savings = value * EMISSION_FACTORS.waste;
+        savings = value * authoritativeEmissionFactors.wasteLandfill;
         calculationText = `Waste recycled × Landfill emissions avoided`;
-        formula = `${value} ${unit} × ${EMISSION_FACTORS.waste} kg CO₂/${unit} = ${savings.toFixed(2)} kg CO₂ saved`;
+        formula = `${value} ${unit} × ${authoritativeEmissionFactors.wasteLandfill} kg CO₂/${unit} = ${savings.toFixed(2)} kg CO₂ saved`;
         break;
 
       case "waterReuse":
-        savings = value * EMISSION_FACTORS.water;
+        savings = value * authoritativeEmissionFactors.water;
         calculationText = `Water reused × Water treatment emissions avoided`;
-        formula = `${value} ${unit} × ${EMISSION_FACTORS.water} kg CO₂/${unit} = ${savings.toFixed(2)} kg CO₂ saved`;
+        formula = `${value} ${unit} × ${authoritativeEmissionFactors.water} kg CO₂/${unit} = ${savings.toFixed(2)} kg CO₂ saved`;
         break;
 
       case "waste":
-        emissions = value * EMISSION_FACTORS.waste;
+        emissions = value * authoritativeEmissionFactors.wasteLandfill;
         calculationText = `Waste to landfill × Landfill emission factor`;
-        formula = `${value} ${unit} × ${EMISSION_FACTORS.waste} kg CO₂/${unit} = ${emissions.toFixed(2)} kg CO₂`;
+        formula = `${value} ${unit} × ${authoritativeEmissionFactors.wasteLandfill} kg CO₂/${unit} = ${emissions.toFixed(2)} kg CO₂`;
         break;
 
       case "water":
-        emissions = value * EMISSION_FACTORS.water;
+        emissions = value * authoritativeEmissionFactors.water;
         calculationText = `Water consumed × Water treatment emission factor`;
-        formula = `${value} ${unit} × ${EMISSION_FACTORS.water} kg CO₂/${unit} = ${emissions.toFixed(2)} kg CO₂`;
+        formula = `${value} ${unit} × ${authoritativeEmissionFactors.water} kg CO₂/${unit} = ${emissions.toFixed(2)} kg CO₂`;
         break;
     }
 
@@ -252,9 +235,12 @@ export function ActivityForm({ siteId, onActivityAdded }: ActivityFormProps) {
         });
         
         setShowCalculation(false);
+      } else {
+        onActivityError();
       }
     } catch (error) {
       console.error('Failed to add activity:', error);
+      onActivityError();
     } finally {
       setIsSubmitting(false);
     }

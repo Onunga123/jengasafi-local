@@ -197,10 +197,21 @@ export function AIInsights({ insights, isLoading, carbonData }: AIInsightsProps)
           filteredInsights.map((insight) => (
             <div
               key={insight.id}
-              className={`bg-white/80 backdrop-blur-sm rounded-xl border transition-all duration-300 hover:shadow-md cursor-pointer ${
+              className={`bg-white/80 backdrop-blur-sm rounded-xl border transition-all duration-300 hover:shadow-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
                 expandedInsight === insight.id ? 'ring-2 ring-blue-200' : ''
               }`}
               onClick={() => setExpandedInsight(expandedInsight === insight.id ? null : insight.id)}
+              role="button"
+              tabIndex={0}
+              aria-expanded={expandedInsight === insight.id}
+              aria-label={`${expandedInsight === insight.id ? "Collapse" : "Expand"} insight: ${insight.text}`}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setExpandedInsight(expandedInsight === insight.id ? null : insight.id);
+                }
+              }}
             >
               <div className="p-4">
                 <div className="flex items-start gap-3">

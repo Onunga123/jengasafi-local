@@ -1,14 +1,10 @@
 // lib/carbon-calculations.ts
 
-// ---------- Emission Factors (kg CO₂ per unit) ----------
-export const emissionFactors = {
-    energyGrid: 0.5, // kg CO₂ per kWh (Kenyan grid average)
-    energyDiesel: 2.7, // kg CO₂ per kWh (from diesel generator)
-    transport: 0.17, // kg CO₂ per km (for an average truck)
-    fuelDiesel: 2.68, // kg CO₂ per liter (for diesel)
-    wasteLandfill: 0.5, // kg CO₂ per kg of waste
-    water: 0.34, // kg CO₂ per m³ of water
-  };
+import { authoritativeEmissionFactors } from "@/lib/emissionFactors";
+
+// Shared authoritative factors retained under this export for the existing
+// client-side calculation helper API.
+export const emissionFactors = authoritativeEmissionFactors;
   
   export interface CarbonActivity {
     id: string;
@@ -25,8 +21,16 @@ export const emissionFactors = {
   export interface CarbonData {
     activities: CarbonActivity[];
     totalEmissions: number;
+    activitySavings?: number;
+    completedTaskSavings?: number;
     totalSavings: number;
     netEmissions: number;
+    baselineEmissions?: number | null;
+    reductionTarget?: number | null;
+    baselineSetAt?: string | Date | null;
+    requiredReduction?: number | null;
+    progressPercentage?: number | null;
+    remainingReduction?: number | null;
     trend: { time: string; emissions: number; savings: number; net: number }[];
     forecast?: { time: string; emissions: number; savings: number; net: number }[];
   }
@@ -66,6 +70,8 @@ export const emissionFactors = {
   export const emptyCarbonData: CarbonData = {
     activities: [],
     totalEmissions: 0,
+    activitySavings: 0,
+    completedTaskSavings: 0,
     totalSavings: 0,
     netEmissions: 0,
     trend: [],

@@ -398,20 +398,7 @@ export default function GenerateReportPage() {
           </div>
         </div>
 
-        {/* Recent Reports Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mt-8 bg-white rounded-2xl shadow-xl border border-blue-200/50 p-6"
-        >
-          <h3 className="font-semibold text-gray-800 mb-4">Recent Reports</h3>
-          <div className="text-center py-8 text-gray-500">
-            <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>Your generated reports will appear here</p>
-            <p className="text-sm text-gray-400 mt-1">Generate your first report to get started</p>
-          </div>
-        </motion.div>
+
       </div>
     </div>
   );

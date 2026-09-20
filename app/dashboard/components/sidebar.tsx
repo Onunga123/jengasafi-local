@@ -6,6 +6,7 @@ import {
   FileBarChart,
   Package,
   Hammer,
+  Brain,
   Building,
   FolderKanban,
   Leaf,
@@ -25,7 +26,7 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
-  const [currentHash, setCurrentHash] = useState("");
+
   const [ecoTip, setEcoTip] = useState(
     "Today's eco-tip: Use recycled building materials when possible"
   );
@@ -33,12 +34,7 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
   // actual clock is initialized after hydration in the effect below.
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
-  useEffect(() => {
-    const syncHash = () => setCurrentHash(window.location.hash);
-    syncHash();
-    window.addEventListener("hashchange", syncHash);
-    return () => window.removeEventListener("hashchange", syncHash);
-  }, []);
+
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -84,7 +80,7 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
     },
     {
       name: "Carbon Intelligence",
-      href: "/dashboard#carbon-intelligence",
+      href: "/dashboard?tab=carbon-intelligence",
       icon: <Leaf className="h-5 w-5" />,
     },
     {
@@ -96,6 +92,11 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
       name: "EcoTasks",
       href: "/dashboard?tab=eco-tasks",
       icon: <ListChecks className="h-5 w-5" />,
+    },
+    {
+      name: "Decision Room",
+      href: "/dashboard?tab=decision-room",
+      icon: <Brain className="h-5 w-5" />,
     },
     {
       name: "Reports",
@@ -119,8 +120,7 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
     const [itemPath, itemQuery] = item.href.split("?");
     if (pathname !== itemPath) return false;
     if (itemQuery) return searchParams?.get("tab") === new URLSearchParams(itemQuery).get("tab");
-    if (item.href.includes("#")) return currentHash === "#carbon-intelligence";
-    return !searchParams?.get("tab") && currentHash !== "#carbon-intelligence";
+    return !searchParams?.get("tab");
   };
 
   return (

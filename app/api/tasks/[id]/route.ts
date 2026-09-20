@@ -54,12 +54,13 @@ async function getAuthorizedTask(taskId: string, userEmail: string) {
 // GET - Fetch single task
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth();
     await connectDB();
-    const task = await getAuthorizedTask(params.id, user.email);
+    const { id } = await params;
+    const task = await getAuthorizedTask(id, user.email);
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
@@ -85,14 +86,15 @@ export async function GET(
 // PUT - Update a task
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth();
     await connectDB();
 
+    const { id } = await params;
     const body = (await req.json()) as Record<string, unknown>;
-    const task = await getAuthorizedTask(params.id, user.email);
+    const task = await getAuthorizedTask(id, user.email);
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
@@ -121,13 +123,14 @@ export async function PUT(
 // DELETE - Remove a task
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth();
     await connectDB();
 
-    const task = await getAuthorizedTask(params.id, user.email);
+    const { id } = await params;
+    const task = await getAuthorizedTask(id, user.email);
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });

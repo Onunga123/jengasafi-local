@@ -10,6 +10,7 @@ export interface ICarbonData extends Document {
   targetEmissions: number;
   reductionProgress: number;
   progressPercentage: number;
+  baselineSetAt: Date | null;
   emissionsByCategory: {
     materials: number;
     energy: number;
@@ -50,6 +51,7 @@ const CarbonDataSchema = new Schema<ICarbonData>(
     targetEmissions: { type: Number, default: 0, min: 0 },
     reductionProgress: { type: Number, default: 0 },
     progressPercentage: { type: Number, default: 0, min: 0, max: 100 },
+    baselineSetAt: { type: Date, default: null },
     emissionsByCategory: {
       materials: { type: Number, default: 0 },
       energy: { type: Number, default: 0 },

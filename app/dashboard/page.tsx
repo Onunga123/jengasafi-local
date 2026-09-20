@@ -2,14 +2,16 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import ClientInfoModal from "./components/clientInfoModal";
 import ProjectList from "./components/projectList";
 import EcoTaskManager from "./components/ecotaskManager";
+import DecisionRoom from "./components/decisionRoom";
 import CarbonVisualization from "@/components/environment/carbonnew";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   // 👇 REMOVE localStorage initialization - start with null
@@ -20,6 +22,13 @@ export default function DashboardPage() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [carbonRefreshSignal, setCarbonRefreshSignal] = useState(0);
+  const [recentlyCompletedTaskId, setRecentlyCompletedTaskId] = useState<string | null>(null);
+
+  const selectTab = (tab: string) => {
+    setActiveTab(tab);
+    router.replace(tab === "overview" ? "/dashboard" : `/dashboard?tab=${tab}`);
+  };
 
 
   // 👇 Create user-specific localStorage key
@@ -39,7 +48,7 @@ export default function DashboardPage() {
         fetch("/api/profile"),
         fetch("/api/projects"),
         fetch("/api/sites"),
-        fetch("/api/ecotasks"),
+        fetch("/api/tasks"),
       ]);
 
       if (profileRes.ok) {
@@ -87,26 +96,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const tab = searchParams?.get("tab");
-    if (tab === "projects" || tab === "eco-tasks") setActiveTab(tab);
+    if (tab === "projects" || tab === "eco-tasks" || tab === "decision-room" || tab === "carbon-intelligence") setActiveTab(tab);
     else setActiveTab("overview");
   }, [searchParams]);
 
-  useEffect(() => {
-    if (status !== "authenticated" || searchParams?.get("tab")) return;
 
-    const scrollToCarbonSection = () => {
-      if (window.location.hash === "#carbon-intelligence") {
-        document.getElementById("carbon-intelligence")?.scrollIntoView({ block: "start" });
-      }
-    };
-
-    const frame = window.requestAnimationFrame(scrollToCarbonSection);
-    window.addEventListener("hashchange", scrollToCarbonSection);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener("hashchange", scrollToCarbonSection);
-    };
-  }, [status, searchParams, hasFetched]);
 
   // 👇 Clear data when user logs out
   useEffect(() => {
@@ -132,8 +126,12 @@ export default function DashboardPage() {
   // Project and Task handlers
   const addProject = (p: any) => setProjects((prev) => [...prev, p]);
   const addEcoTask = (t: any) => setEcoTasks((prev) => [...prev, t]);
-  const updateEcoTask = (t: any) =>
+  const updateEcoTask = (t: any) => {
     setEcoTasks((prev) => prev.map((x) => (x._id === t._id ? t : x)));
+    if (t?.status === "done") {
+      setCarbonRefreshSignal((prev) => prev + 1);
+    }
+  };
   const deleteEcoTask = (taskId: string) => {
     setEcoTasks((prev) => prev.filter((task) => task._id !== taskId));
   };
@@ -177,7 +175,7 @@ export default function DashboardPage() {
         <div className="space-y-10">
           {/* Operational areas */}
           <div className="border-b border-gray-200 flex space-x-4">
-            {["overview", "projects", "eco-tasks"].map((tab) => (
+            {["overview", "projects", "eco-tasks", "decision-room", "carbon-intelligence"].map((tab) => (
               <button
                 key={tab}
                 className={`px-4 py-2 font-medium transition ${
@@ -185,7 +183,7 @@ export default function DashboardPage() {
                     ? "text-emerald-600 border-b-2 border-emerald-600"
                     : "text-gray-500 hover:text-gray-700"
                 }`}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => selectTab(tab)}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1).replace("-", " ")}
               </button>
@@ -219,7 +217,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Open EcoTasks</p>
-                        <p className="mt-1 font-semibold text-slate-900">{ecoTasks.filter((task) => task.status !== "completed").length}</p>
+                        <p className="mt-1 font-semibold text-slate-900">{ecoTasks.filter((task) => task.status !== "done").length}</p>
                       </div>
                     </div>
                   ) : (
@@ -229,45 +227,50 @@ export default function DashboardPage() {
                   )}
                 </section>
 
-                <section id="carbon-intelligence" className="app-surface scroll-mt-6 p-4 sm:p-6" aria-labelledby="sustainability-status-title">
-                  <div className="mb-6">
-                    <h2 id="sustainability-status-title" className="text-2xl font-bold text-emerald-800">Carbon status</h2>
-                    <p className="text-gray-600">Review recorded construction activity and identify the next area to improve.</p>
-                  </div>
-                  <CarbonVisualization
-                    siteId={projects[0]?.siteId || sites[0]?._id || ""}
-                    carbonEmitted={clientData?.carbonEmitted ?? 0}
-                    carbonSaved={clientData?.carbonSaved ?? 0}
-                    trend={[
-                      {
-                        time: new Date().toISOString(),
-                        emissions: clientData?.carbonEmitted ?? 0,
-                        savings: clientData?.carbonSaved ?? 0,
-                        net:
-                          (clientData?.carbonEmitted ?? 0) -
-                          (clientData?.carbonSaved ?? 0),
-                      },
-                    ]}
-                  />
-                </section>
-
                 <section className="grid gap-6 lg:grid-cols-2" aria-label="Next actions">
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
                     <p className="text-sm font-semibold uppercase tracking-wide text-amber-800">Needs attention</p>
-                    <h2 className="mt-2 text-xl font-bold text-slate-900">{ecoTasks.length > 0 ? `${ecoTasks.filter((task) => task.status !== "completed").length} EcoTasks remain open` : "No sustainability actions recorded"}</h2>
+                    <h2 className="mt-2 text-xl font-bold text-slate-900">{ecoTasks.length > 0 ? `${ecoTasks.filter((task) => task.status !== "done").length} EcoTasks remain open` : "No sustainability actions recorded"}</h2>
                     <p className="mt-2 text-sm text-slate-700">{ecoTasks.length > 0 ? "Review EcoTasks to turn sustainability priorities into assigned project actions." : "Add an EcoTask when you identify an opportunity to reduce the impact of construction work."}</p>
-                    <button type="button" onClick={() => setActiveTab("eco-tasks")} className="mt-4 rounded-lg bg-amber-800 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-800">Open EcoTasks</button>
+                    <button type="button" onClick={() => selectTab("eco-tasks")} className="mt-4 rounded-lg bg-amber-800 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-800">Open EcoTasks</button>
                   </div>
                   <div className="rounded-xl border border-blue-200 bg-blue-50 p-6">
                     <p className="text-sm font-semibold uppercase tracking-wide text-blue-800">Next action</p>
                     <h2 className="mt-2 text-xl font-bold text-slate-900">Record the next field activity</h2>
-                    <p className="mt-2 text-sm text-slate-700">Carbon activity records provide the evidence behind project emissions, savings, and recommendations. Review the recorded data and trends below.</p>
-                    <button type="button" onClick={() => document.getElementById("carbon-intelligence")?.scrollIntoView({ behavior: "smooth" })} className="mt-4 rounded-lg bg-blue-800 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-800">Review carbon data</button>
+                    <p className="mt-2 text-sm text-slate-700">Carbon activity records provide evidence for project emissions, savings, and recommendations. Open Carbon Intelligence to review the recorded data and trends.</p>
                   </div>
                 </section>
+
+
               </div>
             )}
 
+            {activeTab === "carbon-intelligence" && (
+              <section className="app-surface p-4 sm:p-6" aria-labelledby="sustainability-status-title">
+                <div className="mb-6">
+                  <h2 id="sustainability-status-title" className="text-2xl font-bold text-emerald-800">Carbon status</h2>
+                  <p className="text-gray-600">Review recorded construction activity and identify the next area to improve.</p>
+                </div>
+                <CarbonVisualization
+                  siteId={projects[0]?.siteId || sites[0]?._id || ""}
+                  refreshSignal={carbonRefreshSignal}
+                  completedTaskId={recentlyCompletedTaskId}
+                  completedTaskTitle={ecoTasks.find((task) => task._id === recentlyCompletedTaskId && task.status === "done")?.title ?? null}
+                  carbonEmitted={clientData?.carbonEmitted ?? 0}
+                  carbonSaved={clientData?.carbonSaved ?? 0}
+                  trend={[
+                    {
+                      time: new Date().toISOString(),
+                      emissions: clientData?.carbonEmitted ?? 0,
+                      savings: clientData?.carbonSaved ?? 0,
+                      net:
+                        (clientData?.carbonEmitted ?? 0) -
+                        (clientData?.carbonSaved ?? 0),
+                    },
+                  ]}
+                />
+              </section>
+            )}
             {activeTab === "projects" && (
               <ProjectList projects={projects} onAddProject={addProject} />
             )}
@@ -278,7 +281,19 @@ export default function DashboardPage() {
                 projects={projects}
                 onAddTask={addEcoTask}
                 onUpdateTask={updateEcoTask}
+                onTaskCompleted={setRecentlyCompletedTaskId}
+                recentlyCompletedTaskId={recentlyCompletedTaskId}
+                onOpenCarbonIntelligence={() => selectTab("carbon-intelligence")}
                 onDeleteTask={deleteEcoTask}
+              />
+            )}
+
+            {activeTab === "decision-room" && (
+              <DecisionRoom
+                siteId={projects[0]?.siteId || sites[0]?._id || ""}
+                projectId={projects[0]?._id || ""}
+                onTaskCreated={addEcoTask}
+                onViewEcoTasks={() => selectTab("eco-tasks")}
               />
             )}
           </div>

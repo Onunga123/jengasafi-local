@@ -27,7 +27,10 @@ interface EcoTaskManagerProps {
   projects: Project[];
   onAddTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
-onDeleteTask: (taskId: string) => void;
+  onTaskCompleted?: (taskId: string) => void;
+  recentlyCompletedTaskId?: string | null;
+  onOpenCarbonIntelligence?: () => void;
+  onDeleteTask: (taskId: string) => void;
 }
 
 export default function EcoTaskManager({
@@ -35,6 +38,9 @@ export default function EcoTaskManager({
   projects,
   onAddTask,
   onUpdateTask,
+  onTaskCompleted,
+  recentlyCompletedTaskId,
+  onOpenCarbonIntelligence,
   onDeleteTask,
 }: EcoTaskManagerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -90,8 +96,10 @@ export default function EcoTaskManager({
 
       onUpdateTask(updatedTask);
       setEditingTask(null);
+      return updatedTask;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update task.");
+      return null;
     } finally {
       setIsSaving(false);
     }
@@ -110,8 +118,12 @@ export default function EcoTaskManager({
     }
   };
 
-  const handleStatusChange = (taskId: string, newStatus: Task["status"]) => {
-    handleUpdateTask(taskId, { status: newStatus });
+  const handleStatusChange = async (taskId: string, newStatus: Task["status"]) => {
+    const currentTask = tasks.find((task) => task._id === taskId);
+    const updatedTask = await handleUpdateTask(taskId, { status: newStatus });
+    if (newStatus === "done" && currentTask?.status !== "done" && updatedTask?._id) {
+      onTaskCompleted?.(updatedTask._id);
+    }
   };
 
   return (
@@ -309,21 +321,35 @@ export default function EcoTaskManager({
             key={task._id}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="p-5 border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-white"
+            className="p-5 border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+            role="button"
+            tabIndex={0}
+            aria-label={`Open task details for ${task.title}`}
             onClick={() => setEditingTask(task)}
+            onKeyDown={(e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setEditingTask(task);
+              }
+            }}
           >
             <div className="flex justify-between items-start mb-2">
               <h4 className="font-bold text-emerald-800 text-lg flex-1">
                 {task.title}
               </h4>
               <button
+                type="button"
+                aria-label={`Delete task ${task.title}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDeleteTask(task._id!);
+                  if (window.confirm(`Delete task "${task.title}"?`)) {
+                    void handleDeleteTask(task._id!);
+                  }
                 }}
-                className="text-gray-400 hover:text-red-500 ml-2"
+                className="ml-2 rounded-md px-2 py-1 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
               >
-                ×
+                Delete task
               </button>
             </div>
             
@@ -382,6 +408,22 @@ export default function EcoTaskManager({
                 <option value="done">Done</option>
               </select>
             </div>
+
+            {task.status === "done" && task._id && task._id === recentlyCompletedTaskId && (
+              <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3" onClick={(e) => e.stopPropagation()}>
+                <p className="text-sm text-emerald-900">Task completed. Record the actual carbon reduction in Carbon Intelligence.</p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenCarbonIntelligence?.();
+                  }}
+                  className="mt-2 rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+                >
+                  Open Carbon Intelligence
+                </button>
+              </div>
+            )}
           </motion.div>
         ))}
       </div>
