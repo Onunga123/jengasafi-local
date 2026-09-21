@@ -1,14 +1,12 @@
 # JengaSafi
 
-JengaSafi is a Next.js sustainability intelligence platform for construction projects. It helps authenticated users organize construction sites and projects, record carbon-related activities, track sustainability actions, review emissions and savings, use grounded Decision Room recommendations, and generate PDF sustainability reports.
-
-The repository describes JengaSafi as a platform for Kenya's construction industry. The current implementation combines project records, deterministic carbon calculations, sustainability targets, material and supplier catalogs, task management, and an optional Anthropic-backed Decision Room.
+JengaSafi is a sustainability intelligence platform for Kenya's construction industry. It helps construction teams organize sites and projects, record carbon-related activities, track sustainability actions, review emissions and savings, ask context-grounded questions through Decision Room, and generate site-level sustainability reports.
 
 ## Overview
 
-JengaSafi brings construction project information, environmental activity records, sustainability targets, and follow-up actions together in one application. Users can manage sites and projects, record carbon activities, review calculated emissions and savings, manage tasks, obtain deterministic carbon insights, ask context-grounded Decision Room questions, and generate site-level PDF reports.
+JengaSafi brings construction project information, environmental activity records, sustainability targets, and follow-up actions together in one application. Users can manage their construction sites and projects, record emissions and sustainability activities, monitor carbon performance, manage project actions, explore sustainable materials and suppliers, and download PDF reports.
 
-The implemented workflow is centered on:
+The main workflow is:
 
 ```text
 Account
@@ -21,20 +19,26 @@ Account
   → PDF report
 ```
 
-The application is a full-stack Next.js application backed by MongoDB and Mongoose. It includes App Router route handlers under `app/api` and a small amount of legacy Pages Router/API code.
+The application is built with Next.js, React, TypeScript, MongoDB, and Mongoose. It uses the Next.js App Router for the main application and API routes, alongside a small amount of legacy Pages Router/API code.
 
 ## Key Features
 
 ### User accounts and profiles
 
 - Sign up with a name, email address, and password.
-- Log in through NextAuth credentials authentication.
+- Sign in through NextAuth credentials authentication.
 - Store passwords as bcrypt hashes.
-- Maintain a sustainability profile containing company, role, sustainability goals, reduction target, focus areas, and setup completion state.
+- Maintain a sustainability profile containing:
+  - company
+  - role
+  - sustainability goals
+  - reduction target
+  - focus areas
+  - setup completion state
 
 ### Construction sites and projects
 
-- Create and list authenticated users' construction sites.
+- Create and list user-owned construction sites.
 - Record site location, project type, size, dates, budget, and status.
 - Create projects linked to an owned site.
 - Store project descriptions, locations, dates, and ownership.
@@ -53,17 +57,35 @@ Carbon activities can represent emissions or savings-related records, including:
 - recycling
 - water reuse
 
-Activities store values, descriptions, site ownership, optional fuel types, and optional standard/sustainable emission factors.
+Activities store values, descriptions, site ownership, optional fuel types, and optional standard and sustainable emission factors.
 
 ### Emissions and savings calculations
 
-The application uses centralized deterministic emission factors and calculation utilities. It calculates activity emissions, activity savings, total emissions, total savings, net emissions, completed-task savings, efficiency scores, and reduction progress against a baseline and target.
+JengaSafi uses centralized deterministic emission factors and calculation utilities to calculate:
 
-Current factors are defined in `lib/emissionFactors.ts`. They are application constants, not fetched from a live factor provider.
+- activity emissions
+- activity savings
+- total emissions
+- total savings
+- net emissions
+- completed-task savings
+- efficiency scores
+- reduction progress against a baseline and target
+
+The factors are defined in `lib/emissionFactors.ts` as application constants rather than being fetched from a live factor provider.
 
 ### Sustainability targets, trends, and forecasts
 
-Carbon data supports baseline emissions, reduction targets, target emissions, reduction progress, progress percentage, emissions by category, monthly data, and carbon-data status.
+Carbon data supports:
+
+- baseline emissions
+- reduction targets
+- target emissions
+- reduction progress
+- progress percentage
+- emissions by category
+- monthly data
+- carbon-data status
 
 The carbon trends endpoint calculates a trend series and a basic forecast using `lib/forecast.ts`. The forecast uses linear regression, generates six future points, advances in daily increments, sets forecast savings to `0`, and clamps negative forecast values to `0`.
 
@@ -71,33 +93,33 @@ The carbon trends endpoint calculates a trend series and a basic forecast using 
 
 `Task` and `EcoTask` are separate schemas and API concepts:
 
-- `Task`: project tasks with priority, impact, status, due date, assignment, and estimated/actual carbon reduction. Its statuses are `todo`, `in-progress`, and `done`.
-- `EcoTask`: sustainability-oriented project tasks with materials, deadlines, ecological impact, assignment, and estimated/actual carbon savings. Its statuses are `pending`, `in-progress`, and `completed`.
+- `Task` represents project tasks with priority, impact, status, due date, assignment, and estimated or actual carbon reduction. Its statuses are `todo`, `in-progress`, and `done`.
+- `EcoTask` represents sustainability-oriented project tasks with materials, deadlines, ecological impact, assignment, and estimated or actual carbon savings. Its statuses are `pending`, `in-progress`, and `completed`.
 
-Decision Room recommendations can be converted into project `Task` records through the dashboard. The two task systems are related in purpose but are not the same database model or status vocabulary.
+Decision Room recommendations can be converted into project `Task` records through the dashboard. The two task systems are related in purpose but use different database models, fields, status values, and API behavior.
 
 ### Sustainability insights
 
-The `/api/insights` route and related insight components expose deterministic carbon insights from recorded activities. Current rules consider renewable-energy percentage, transport fuel usage, waste generation, and water usage.
+The `/api/insights` route and related insight components provide deterministic carbon insights from recorded activities. Current rules consider renewable-energy percentage, transport fuel usage, waste generation, and water usage.
 
-These insights are generated by application logic in `lib/carbonInsights.ts`; they are not generated by an LLM, and the current dashboard source does not establish a dedicated Insights tab.
+These insights are generated by application logic in `lib/carbonInsights.ts`; they are not generated by an LLM. The current dashboard does not establish a dedicated Insights tab.
 
 ### Materials and suppliers
 
-The repository includes:
+JengaSafi provides:
 
 - a sustainable-material catalog
 - supplier records
 - supplier-to-material references
 - material categories, prices, units, availability, and ecological attributes
 - supplier location, rating, certifications, and specialties
-- a materials listing route that does not require `requireAuth()` in its GET handler
+- a materials listing route whose GET handler does not require `requireAuth()`
 - an admin-authorized materials creation route
-- a suppliers listing route that does not require `requireAuth()` in its GET handler
+- a suppliers listing route whose GET handler does not require `requireAuth()`
 
-Sustainable materials are currently catalog-level records. The material schema does not contain a project foreign key. Consequently, Decision Room material context can include catalog-wide materials rather than only materials associated with the selected project.
+Sustainable materials are currently catalog-level records. The material schema does not contain a project foreign key, so Decision Room material context can include catalog-wide materials rather than only materials associated with the selected project.
 
-The repository also contains optional or partial external materials-source routes. Their availability and configuration requirements are described in [External Materials Sources](#external-materials-sources).
+JengaSafi also provides optional or partial external materials-source routes. Their availability and configuration requirements are described in [External Materials Sources](#external-materials-sources).
 
 ### Dashboard
 
@@ -125,13 +147,25 @@ It:
 - displays recommendations, reasoning, evidence, tradeoffs, constraints, uncertainties, and proposed next steps
 - allows a proposed next step to be added to project tasks
 
-The prompt instructs the provider to use evidence/provenance categories such as recorded project data, deterministic calculation, external estimate, and AI reasoning. The internal context builder and model-output schema use related but not identical terminology for some provenance labels, so the labels should be understood as an application-defined evidence classification contract rather than as identical internal and output field values.
+The prompt instructs the provider to use evidence and provenance categories such as recorded project data, deterministic calculation, external estimate, and AI reasoning. The internal context builder and model-output schema use related but not identical terminology for some provenance labels; these should be understood as an application-defined evidence classification contract.
 
-The Decision Room requires `ANTHROPIC_API_KEY` to be used, but that key is not required merely to start the rest of the application. `ANTHROPIC_MODEL` can override the route's default model name.
+`ANTHROPIC_API_KEY` is required to use Decision Room, but it is not required merely to start the rest of the application. `ANTHROPIC_MODEL` can override the route's default model name.
 
 ### PDF reports
 
-Authenticated users can generate and download a PDF report for a selected construction site. Reports include, where available, site and project information, reporting metadata, total emissions, total carbon savings, net emissions, efficiency score, recorded carbon activities, emissions breakdown, carbon insights, EcoTasks, and data-provenance notes.
+Authenticated users can generate and download a PDF report for a selected construction site. Reports include, where available:
+
+- site and project information
+- reporting metadata
+- total emissions
+- total carbon savings
+- net emissions
+- efficiency score
+- recorded carbon activities
+- emissions breakdown
+- carbon insights
+- EcoTasks
+- data-provenance notes
 
 Reports are generated server-side with `pdf-lib` and returned as PDF downloads. The current report form selects a site but does not expose a date-range filter; the generated report covers the site's currently stored records.
 
@@ -146,7 +180,7 @@ Reports are generated server-side with `pdf-lib` and returned as PDF downloads. 
 7. The user records carbon activities and manages project or EcoTask actions.
 8. Carbon routes calculate emissions, savings, net values, progress, trends, and forecasts.
 9. The Insights API and related components provide deterministic recommendations from recorded carbon activity.
-10. The Decision Room can analyze authorized project context using the configured Anthropic provider.
+10. Decision Room analyzes authorized project context using the configured Anthropic provider.
 11. The Reports page at `/dashboard/reports` generates a downloadable PDF for a selected site.
 
 ## Architecture
@@ -190,16 +224,16 @@ Browser → Next.js page/component → API route or server action
 | bcryptjs | `^2.4.3` | Password hashing and verification |
 | Tailwind CSS | `^3.4.1` | Styling |
 | Framer Motion | `^12.23.22` | UI animation |
-| Recharts | `^3.2.1` installed dependency | Charting/data-visualization dependency; active usage should be verified per component |
-| Zod | `^4.1.11` | Decision Room request/response validation |
+| Recharts | `^3.2.1` installed dependency | Charting and data-visualization dependency; usage should be verified per component |
+| Zod | `^4.1.11` | Decision Room request and response validation |
 | pdf-lib | `^1.17.1` | Server-side PDF report generation |
 | Leaflet / React Leaflet | `^1.9.4` / `^5.0.0` installed dependencies | Map-related packages |
-| Google Maps packages | See `package.json` | Installed Google Maps-related dependencies; the repository does not establish every package as an active production integration |
-| SWR | `^2.3.6` installed dependency | Data-fetching utilities/dependency |
+| Google Maps packages | See `package.json` | Installed Google Maps-related dependencies; not every package is established as an active production integration |
+| SWR | `^2.3.6` installed dependency | Data-fetching utilities and dependency |
 | dotenv | `^16.4.7` | Loading `.env.local` in database-related code and scripts |
 | patch-package | `^8.0.0` | Applying the checked-in React Water Wave patch after installation |
 
-The repository contains additional installed dependencies, including Clerk, GitLab, EmailJS, Nodemailer, mapping packages, and other UI utilities. Their presence in `package.json` should not be interpreted as proof that each is an active production integration.
+JengaSafi also has installed dependencies for Clerk, GitLab, EmailJS, Nodemailer, mapping, and other UI utilities. An installed package is not necessarily an active production integration.
 
 ## Project Structure
 
@@ -222,7 +256,7 @@ The repository contains additional installed dependencies, including Clerk, GitL
 ├── hooks/                        Client-side hooks
 ├── lib/
 │   ├── auth.ts                   NextAuth configuration
-│   ├── authorization.ts          Authentication/authorization helpers
+│   ├── authorization.ts          Authentication and authorization helpers
 │   ├── carbonCalculation.ts      Carbon calculations and efficiency scoring
 │   ├── carbonInsights.ts         Deterministic carbon insights
 │   ├── db.ts                     Cached Mongoose connection
@@ -262,13 +296,13 @@ Authentication is implemented with NextAuth's `CredentialsProvider`.
 - `middleware.ts` redirects unauthenticated requests for `/dashboard` and `/admin` to `/login`.
 - Admin users requesting `/dashboard` are redirected to `/admin`; non-admin users requesting `/admin` are redirected to `/dashboard`.
 
-The repository contains a legacy login action that returns HTTP 410 and directs callers to use NextAuth credentials sign-in instead.
+The application retains a legacy login action that returns HTTP 410 and directs callers to NextAuth credentials sign-in instead.
 
-Authorization is not identical across every route. In particular, the GET handlers for `/api/materials` and `/api/suppliers`, and the `/api/proxy-2050-materials` route, do not call `requireAuth()` in the inspected implementation.
+Authorization is not identical across every route. In particular, the GET handlers for `/api/materials` and `/api/suppliers`, and the `/api/proxy-2050-materials` route, do not call `requireAuth()`.
 
 ## Data & Database
 
-The application connects to MongoDB using Mongoose. `lib/db.ts` loads `MONGODB_URI` and connects to the `nexora` database name. The connection is cached globally for reuse during development and server execution.
+JengaSafi connects to MongoDB using Mongoose. `lib/db.ts` loads `MONGODB_URI` and connects to the `nexora` database name. The connection is cached globally for reuse during development and server execution.
 
 Important models include:
 
@@ -284,15 +318,25 @@ Important models include:
 | `EcoTask` | Sustainability-oriented project task | References `Project` through `projectId` |
 | `Supplier` | Supplier catalog record | Referenced by sustainable materials |
 | `SustainableMaterial` | Sustainable material catalog entry | References `Supplier` through `supplier`; has no project foreign key |
-| `Report` | Report-related model present in the repository | The active PDF generator reads site/project/activity/task data directly rather than relying on this model |
+| `Report` | Report-related model present in the application | The active PDF generator reads site/project/activity/task data directly rather than relying on this model |
 
-Ownership is normally enforced by querying records with the authenticated user's email. The codebase uses string email ownership in several models and ObjectId references for site/project relationships.
+Ownership is normally enforced by querying records with the authenticated user's email. The application uses string email ownership in several models and ObjectId references for site and project relationships.
 
 ## Carbon & Sustainability Intelligence
 
 ### Activity types
 
-`CarbonActivity` accepts the activity types defined in `types/CarbonActivity.ts`: energy, renewable, transport, machinery, material, waste, recycling, water, and water reuse.
+`CarbonActivity` accepts the activity types defined in `types/CarbonActivity.ts`:
+
+- energy
+- renewable
+- transport
+- machinery
+- material
+- waste
+- recycling
+- water
+- water reuse
 
 ### Deterministic calculations
 
@@ -307,11 +351,17 @@ Ownership is normally enforced by querying records with the authenticated user's
 - standard material factor: `800`
 - sustainable material factor: `350`
 
-The repository treats these as application constants. The code does not demonstrate a live authoritative-factor API.
+These are application constants. JengaSafi does not currently provide a live factor-verification or carbon-certification workflow for them.
 
 ### Targets and progress
 
-For a site with a baseline and reduction target, the application can calculate required reduction, progress percentage, remaining reduction, target emissions, and reduction progress.
+For a site with a baseline and reduction target, JengaSafi can calculate:
+
+- required reduction
+- progress percentage
+- remaining reduction
+- target emissions
+- reduction progress
 
 The carbon trends route combines activity savings with actual carbon reductions recorded on completed project tasks when those records are available.
 
@@ -328,7 +378,7 @@ These calculations and insights should not be interpreted as independently verif
 
 ### Decision Room AI
 
-The Decision Room is the one explicitly external LLM-backed feature in the current codebase. `/api/decision-room` calls the Anthropic Messages API with:
+Decision Room is the explicitly external LLM-backed feature in JengaSafi. `/api/decision-room` calls the Anthropic Messages API with:
 
 - an authenticated user's authorized site and project context
 - recorded activities, catalog materials, open tasks, and sustainability target data
@@ -372,7 +422,7 @@ The main API route groups are:
 | `/api/kpis` | KPI-related API route |
 | `/api/reports` | Reports-related API route group |
 
-Routes should be treated as implementation-oriented rather than a stable public API. Request validation and authorization vary by route, so callers should inspect the relevant handler before integrating with it.
+Routes are implementation-oriented rather than a stable public API. Request validation and authorization vary by route, so callers should inspect the relevant handler before integrating with them.
 
 ## Reports
 
@@ -388,7 +438,7 @@ The server-side report generator verifies site and optional project ownership, l
 
 ## External Materials Sources
 
-The repository includes an authenticated `/api/materials/external` proxy supporting source names used by the implementation:
+JengaSafi provides an authenticated `/api/materials/external` proxy supporting these source names:
 
 - `epc`
 - `usgs`
@@ -402,7 +452,7 @@ These are optional or partial integrations rather than uniformly available produ
 - USGS currently returns an unavailable response because the legacy products API is no longer available.
 - Open Food Facts is called without an application credential in the current route.
 
-There is also a `/api/proxy-2050-materials` route using `MATERIALS_2050_API_KEY`. When that key is absent or the upstream request is unavailable, the route returns an empty materials list.
+JengaSafi also provides a `/api/proxy-2050-materials` route using `MATERIALS_2050_API_KEY`. When that key is absent or the upstream service is unavailable, the route returns an empty materials list.
 
 ## Setup & Installation
 
@@ -412,9 +462,9 @@ There is also a `/api/proxy-2050-materials` route using `MATERIALS_2050_API_KEY`
 - A MongoDB deployment reachable from the development environment.
 - A MongoDB database user with permission to access the configured database.
 - An authentication secret for NextAuth.
-- An Anthropic API key only if the Decision Room is required.
+- An Anthropic API key only if Decision Room is required.
 
-The repository does not specify a Node.js version in `package.json`, so use a Node.js version compatible with the listed Next.js, React, and TypeScript dependencies.
+The project does not specify a Node.js version in `package.json`, so use a Node.js version compatible with the listed Next.js, React, and TypeScript dependencies.
 
 ### Clone and install
 
@@ -424,11 +474,11 @@ cd jengasafi-local
 npm install
 ```
 
-`npm install` runs the repository's `postinstall` script, which applies the checked-in patch through `patch-package`.
+`npm install` runs the `postinstall` script, which applies the checked-in patch through `patch-package`.
 
 ### Configure environment variables
 
-Create a local `.env.local` file in the repository root. At minimum, configure:
+Create a local `.env.local` file in the project root. At minimum, configure:
 
 ```env
 MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>/<database>
@@ -462,13 +512,11 @@ npm run start
 
 ### Seed data
 
-The repository includes:
-
 ```bash
 npm run seed
 ```
 
-The current `scripts/seed.ts` is a legacy/demo seed script. It loads `.env.local`, connects to MongoDB, clears several collections, and inserts sample sites, KPIs, alerts, carbon data, and NEMA data. Review the script carefully before running it against any shared or production database.
+`scripts/seed.ts` is a legacy/demo seed script. It loads `.env.local`, connects to MongoDB, clears several collections, and inserts sample sites, KPIs, alerts, carbon data, and NEMA data. Review it carefully before running it against any shared or production database.
 
 ## Environment Variables
 
@@ -483,7 +531,7 @@ The current `scripts/seed.ts` is a legacy/demo seed script. It loads `.env.local
 | `OPENLCA_API_KEY` | Optional, required for OpenLCA source | OpenLCA external materials-source credential. |
 | `MATERIALS_2050_API_KEY` | Optional | Enables the 2050 Materials proxy route; without it or when the upstream is unavailable, that route returns an empty list. |
 
-The repository ignores `.env*` files through `.gitignore`. Never commit credentials or secrets.
+`.env*` files are ignored through `.gitignore`. Never commit credentials or secrets.
 
 ## Development
 
@@ -497,61 +545,60 @@ Available package scripts:
 | `npm run lint` | Run the configured Next.js lint command |
 | `npm run seed` | Run the legacy/destructive demo seed script |
 
-The application uses the `@/*` TypeScript path alias, mapped to the repository root. Most server-side routes explicitly call `connectDB()` and then use `requireAuth()` or `requireRole()` before accessing protected data, but authorization should be checked route by route.
+The application uses the `@/*` TypeScript path alias, mapped to the project root. Most server-side routes explicitly call `connectDB()` and then use `requireAuth()` or `requireRole()` before accessing protected data, but authorization should be checked route by route.
 
 ## Security Considerations
 
-The current implementation includes:
+JengaSafi currently includes:
 
 - bcrypt password hashing and verification
 - NextAuth credentials authentication
 - JWT-based sessions
-- role values of `user` and `admin`
+- `user` and `admin` roles
 - middleware protection for dashboard and admin paths
 - server-side authorization helpers
 - ownership checks in many site, project, task, carbon-data, report, and Decision Room operations
 - environment-based storage of database, authentication, AI, and external-service credentials
 - Zod validation of Decision Room model output before it is returned to the client
 
-The repository also contains legacy and transitional routes. Review each route's authorization behavior before exposing it as a public integration. In particular, `/api/materials` GET, `/api/suppliers` GET, and `/api/proxy-2050-materials` are not protected by `requireAuth()` in the inspected implementation.
+The application includes legacy and transitional routes that should be reviewed before being exposed as public integrations. In particular, `/api/materials` GET, `/api/suppliers` GET, and `/api/proxy-2050-materials` are not protected by `requireAuth()`.
 
 ## Known Limitations / Project Status
 
-The codebase is an active project with several important maintenance considerations:
+JengaSafi is an active project with several important technical limitations:
 
-- No prior root README was present when this documentation was created.
-- The codebase contains both modern App Router handlers and legacy Pages Router/API code.
-- Some installed dependencies appear unused, transitional, or experimental, including Clerk, GitLab-related packages, multiple mapping packages, and some legacy utilities. Installed packages should not automatically be interpreted as active production integrations.
-- The repository has more than one carbon-data approach: a site/user-scoped `CarbonData` model and a legacy/global `Carbon` model used by `/api/carbon` and the seed script.
+- The application uses both modern App Router handlers and legacy Pages Router/API code.
+- Some installed dependencies appear unused, transitional, or experimental, including Clerk, GitLab-related packages, multiple mapping packages, and legacy utilities. Installed packages should not automatically be interpreted as active production integrations.
+- The application has more than one carbon-data approach: a site/user-scoped `CarbonData` model and a legacy/global `Carbon` model used by `/api/carbon` and the seed script.
 - `/api/carbon` reads the latest global `Carbon` record and does not provide the same user/site-scoped behavior as the newer carbon activity APIs.
-- Ownership conventions are not completely uniform: several records use the authenticated user's email as a string owner identifier, while site/project relationships use MongoDB ObjectIds.
+- Ownership conventions are not completely uniform: several records use the authenticated user's email as a string owner identifier, while site and project relationships use MongoDB ObjectIds.
 - `Task` and `EcoTask` are separate schemas with different status conventions and API behavior.
 - Sustainable materials are catalog-level records without a project foreign key. Decision Room material context can therefore include catalog-wide materials.
-- The current `scripts/seed.ts` defines legacy demo collections and clears data; it should not be treated as a safe production migration.
+- `scripts/seed.ts` defines legacy demo collections and clears data; it should not be treated as a safe production migration.
 - External materials-source availability is not uniform. USGS is explicitly unavailable, EPC and OpenLCA require credentials, and the 2050 Materials proxy can return an empty list when unconfigured or unavailable.
 - `/api/materials` GET is not protected by `requireAuth()`.
 - `/api/suppliers` GET is not protected by `requireAuth()`.
 - `/api/proxy-2050-materials` is not protected by `requireAuth()`.
-- Deterministic emission factors are stored in source code. The repository does not implement a live verification or certification workflow for those factors.
-- Forecasting uses basic linear regression, six future points, daily increments, zero forecast savings, and non-negative clamping; it is not an advanced forecasting or machine-learning system.
-- The Decision Room depends on an external Anthropic API and can fail because of provider configuration, rate limits, timeouts, invalid JSON, or invalid response contracts. It should not be treated as a replacement for professional environmental or engineering advice.
+- Emission factors are stored as application constants; JengaSafi does not currently provide a live factor-verification or carbon-certification workflow.
+- Forecasting uses basic linear regression, six future points, daily increments, zero forecast savings, and non-negative clamping. It is not an advanced forecasting or machine-learning system.
+- Decision Room depends on an external Anthropic API and can fail because of provider configuration, rate limits, timeouts, invalid JSON, or invalid response contracts. It should not be treated as a replacement for professional environmental or engineering advice.
 - The report generator currently reports all stored activity for the selected site; the UI does not provide a date-range selector.
-- The repository does not establish production-readiness, independent carbon-accounting certification, or compliance with a particular regulatory framework.
+- JengaSafi should not be considered production-ready, independently certified for carbon accounting, or compliant with a particular regulatory framework.
 
 ## Contributing
 
-Contributions should preserve the application's existing authentication, ownership checks, data relationships, and calculation behavior. Before opening a pull request:
+Contributions should preserve the application's authentication, ownership checks, data relationships, and calculation behavior. Before opening a pull request:
 
 1. Review the affected route handlers, models, and client components together.
 2. Keep secrets out of source control.
 3. Run the relevant local checks, including the build or lint command where applicable.
 4. Document changes to API behavior, data models, environment variables, and carbon calculations.
 
-No separate contribution policy is currently defined in the repository.
+No separate contribution policy is currently defined for the project.
 
 ## License
 
-The repository includes the following copyright and licensing notice in `LICENSE`:
+The project includes the following copyright and licensing notice in `LICENSE`:
 
 > Copyright (c) 2025 JENGASAFI (Wamalwa Jeff Michael). All Rights Reserved.
 
