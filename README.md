@@ -600,8 +600,7 @@ No separate contribution policy is currently defined for the project.
 
 The project includes the following copyright and licensing notice in `LICENSE`:
 
-> Copyright (c) 2025 JENGASAFI (Wamalwa Jeff Michael). All Rights Reserved.
+> Copyright (c) 2026 JENGASAFI. All Rights Reserved.
 
-The notice states that the repository and its contents are the exclusive property of JENGASAFI and its authors, and that copying, distribution, forking, modification, or use requires express written permission from the copyright owner. Permission requests are directed to `andikamichael163@gmail.com`.
-
+The notice states that the repository and its contents are the exclusive property of JENGASAFI and its authors, and that copying, distribution, forking, modification, or use requires express written permission from the copyright owner. 
 This README does not assign an additional license or permissions beyond the text in `LICENSE`.
