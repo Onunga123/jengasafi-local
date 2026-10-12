@@ -1,0 +1,22 @@
+
+> jengasafi@0.1.0 dev
+> nodemon --exec next dev
+
+[33m[nodemon] 3.1.14[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `next dev`[39m
+▲ Next.js 16.3.3 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.100.6:3000
+- Environments: .env
+✓ Ready in 6.1s
+✓ Running next.config.ts took 426ms
+
+○ Compiling /login ...
+ GET /login 200 in 107ms (next.js: 33ms, application-code: 74ms)
+ GET /api/tasks 401 in 2.0s (next.js: 340ms, application-code: 1686ms)
+ GET /api/auth/session 200 in 2.7s (next.js: 2.7s, application-code: 41ms)
+[?25h
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m

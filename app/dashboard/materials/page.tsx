@@ -13,7 +13,7 @@ interface UserCarbonMetrics {
   totalEmissions: number;
   totalSavings: number;
   netEmissions: number;
-  reductionTarget: number;
+  reductionTarget: number | null;
   highImpactCategories: string[];
 }
 
@@ -226,14 +226,23 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
 
   const fetchUserMetrics = async () => {
     try {
-      const response = await fetch(`/api/carbon-trends?siteId=${siteId}`);
-      const carbonData = await response.json();
+      const [carbonResponse, profileResponse] = await Promise.all([
+        fetch(`/api/carbon-trends?siteId=${siteId}`),
+        fetch("/api/profile"),
+      ]);
+      const carbonData = carbonResponse.ok ? await carbonResponse.json() : null;
+      const profileData = profileResponse.ok ? await profileResponse.json() : null;
+      const reductionTarget =
+        typeof profileData?.reductionTarget === "number" &&
+        Number.isFinite(profileData.reductionTarget)
+          ? profileData.reductionTarget
+          : null;
       
       setUserMetrics({
-        totalEmissions: carbonData.totalEmissions || 0,
-        totalSavings: carbonData.totalSavings || 0,
-        netEmissions: carbonData.netEmissions || 0,
-        reductionTarget: 25,
+        totalEmissions: carbonData?.totalEmissions || 0,
+        totalSavings: carbonData?.totalSavings || 0,
+        netEmissions: carbonData?.netEmissions || 0,
+        reductionTarget,
         highImpactCategories: await analyzeHighImpactCategories(siteId)
       });
     } catch (error) {
@@ -242,7 +251,7 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
         totalEmissions: 0,
         totalSavings: 0,
         netEmissions: 0,
-        reductionTarget: 25,
+        reductionTarget: null,
         highImpactCategories: ["concrete", "steel", "insulation"]
       });
     }
@@ -411,11 +420,7 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
       });
 
       if (userMetrics) {
-        setUserMetrics({
-          ...userMetrics,
-          totalSavings: userMetrics.totalSavings + carbonSaved,
-          netEmissions: Math.max(0, userMetrics.netEmissions - carbonSaved)
-        });
+        await fetchUserMetrics();
       }
 
       alert(`✅ Saved ${carbonSaved.toFixed(0)} kg CO₂ by choosing ${material.name}!`);
@@ -505,7 +510,9 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
             </div>
             <div className="bg-muted/30 p-3 rounded-lg">
               <div className="text-sm text-muted-foreground">Reduction Target</div>
-              <div className="text-lg font-semibold text-emerald-600">{userMetrics.reductionTarget}%</div>
+              <div className="text-lg font-semibold text-emerald-600">
+                {userMetrics.reductionTarget !== null ? `${userMetrics.reductionTarget}%` : "Not available"}
+              </div>
             </div>
             <div className="bg-muted/30 p-3 rounded-lg">
               <div className="text-sm text-muted-foreground">Focus Areas</div>
@@ -743,7 +750,9 @@ export default function MaterialsHub({ onMaterialSelect, siteId }: MaterialsHubP
         </div>
         <div className="bg-muted/30 p-4 rounded-lg border border-border">
           <div className="text-2xl font-bold text-emerald-600">
-            {userMetrics?.reductionTarget || 25}%
+            {userMetrics?.reductionTarget !== null && userMetrics?.reductionTarget !== undefined
+              ? `${userMetrics.reductionTarget}%`
+              : "Not available"}
           </div>
           <div className="text-sm text-muted-foreground">Your Reduction Target</div>
         </div>

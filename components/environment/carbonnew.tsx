@@ -6,10 +6,8 @@ import {
   EmissionsVsSavings,
   PredictiveAnalysis,
 } from "../carbonCharts";
-import { ActivityLog } from "../carbonActivity";
 import { DataSourceCredibility } from "../dataCredibility";
 import { CarbonData } from "@/lib/carbonCalculation";
-import { ActivityForm } from "../activityForm";
 import { KPISummary } from "../kpiSummary";
 import { AIInsights } from "../aiInsights";
 import { ClientApiError, requestJson } from "@/lib/client-errors";
@@ -19,6 +17,9 @@ type Props = {
   refreshSignal?: number;
   completedTaskId?: string | null;
   completedTaskTitle?: string | null;
+  completedTaskImpact?: number | null;
+  completedTaskImpactStatus?: "verified" | "not-verifiable";
+  completedTaskType?: "standard" | "inventory";
 carbonEmitted: number;
 carbonSaved: number;
 trend: { 
@@ -35,6 +36,9 @@ export default function EnvironmentalMonitoringDashboard({
   refreshSignal,
   completedTaskId,
   completedTaskTitle,
+  completedTaskImpact,
+  completedTaskImpactStatus,
+  completedTaskType,
 }: Props) {
   const [carbonData, setCarbonData] = useState<CarbonData>({
     activities: [],
@@ -52,11 +56,6 @@ export default function EnvironmentalMonitoringDashboard({
   });
 
   const [insights, setInsights] = useState<string[]>([]);
-  const [activityFeedback, setActivityFeedback] = useState<'success' | 'error' | null>(null);
-  const [actualReduction, setActualReduction] = useState("");
-  const [actualReductionError, setActualReductionError] = useState<string | null>(null);
-  const [actualReductionFeedback, setActualReductionFeedback] = useState<string | null>(null);
-  const [isSavingActualReduction, setIsSavingActualReduction] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [carbonDataError, setCarbonDataError] = useState(false);
   const [insightsError, setInsightsError] = useState(false);
@@ -79,7 +78,9 @@ export default function EnvironmentalMonitoringDashboard({
 
   const fetchCarbonData = async () => {
     try {
-      const response = await fetch(`/api/carbon-trends?siteId=${siteId}`);
+      const response = await fetch(`/api/carbon-trends?siteId=${encodeURIComponent(siteId)}`, {
+        cache: "no-store",
+      });
       if (!response.ok) throw new Error("Carbon data request failed");
       const data = await response.json();
       setCarbonData(data);
@@ -102,55 +103,6 @@ export default function EnvironmentalMonitoringDashboard({
     } catch (error) {
       console.error("Error fetching insights:", error);
       setInsightsError(true);
-    }
-  };
-
-  const handleActualReductionSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setActualReductionError(null);
-    setActualReductionFeedback(null);
-
-    if (!completedTaskId) {
-      setActualReductionError("The completed EcoTask could not be identified. Please return to EcoTasks and try again.");
-      return;
-    }
-
-    const trimmedValue = actualReduction.trim();
-    if (!trimmedValue) {
-      setActualReductionError("Enter the measured carbon reduction.");
-      return;
-    }
-
-    const reduction = Number(trimmedValue);
-    if (!Number.isFinite(reduction)) {
-      setActualReductionError("Enter a valid numeric value.");
-      return;
-    }
-
-    if (reduction < 0) {
-      setActualReductionError("Actual carbon reduction cannot be negative.");
-      return;
-    }
-
-    setIsSavingActualReduction(true);
-    try {
-      await requestJson(`/api/tasks/${completedTaskId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actualCarbonReduction: reduction }),
-      });
-
-      setActualReduction("");
-      setActualReductionFeedback("Actual carbon reduction saved successfully.");
-      await Promise.all([fetchCarbonData(), fetchInsights()]);
-    } catch (error) {
-      setActualReductionError(
-        error instanceof Error
-          ? error.message
-          : "Failed to save the actual carbon reduction. Please try again."
-      );
-    } finally {
-      setIsSavingActualReduction(false);
     }
   };
 
@@ -265,7 +217,7 @@ export default function EnvironmentalMonitoringDashboard({
 
           <section aria-labelledby="carbon-insights-section-title">
             <div>
-              <h2 id="carbon-insights-section-title">Additional Carbon Insights</h2>
+              <h2 id="carbon-insights-section-title">Deterministic carbon insights</h2>
             </div>
 
             {/* Activity-based insights */}
@@ -286,83 +238,29 @@ export default function EnvironmentalMonitoringDashboard({
             <AIInsights insights={insights} isLoading={isLoading} />
           </section>
 
-          <section aria-labelledby="activity-history-title">
-            <div>
-              <h2 id="activity-history-title">Activity History</h2>
-            </div>
-
-            {/* Activity Log */}
-            <ActivityLog activities={carbonData.activities} />
-          </section>
-
           {/* Completed EcoTask result */}
           {completedTaskId && (
             <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4" aria-labelledby="completed-ecotask-result-title">
-              {completedTaskTitle && (
-                <p className="font-semibold text-emerald-900">Completed EcoTask: {completedTaskTitle}</p>
+              {completedTaskType === "inventory" ? (
+                <p id="completed-ecotask-result-title" className="mt-1 text-sm font-semibold text-emerald-900">
+                  Carbon activity inventory task completed. Recorded baseline activity remains available in Carbon Intelligence; no carbon reduction is calculated for this task.
+                </p>
+              ) : completedTaskImpactStatus === "verified" && typeof completedTaskImpact === "number" ? (
+                <p id="completed-ecotask-result-title" className="mt-1 text-sm font-semibold text-emerald-900">
+                  Carbon impact calculated: {completedTaskImpact.toFixed(2)} kg CO₂
+                </p>
+              ) : (
+                <p id="completed-ecotask-result-title" className="mt-1 text-sm font-semibold text-emerald-900">
+                  Carbon impact not yet verifiable — additional project activity data is required.
+                </p>
               )}
-              <p id="completed-ecotask-result-title" className="mt-1 text-sm font-semibold text-emerald-900">Record the actual carbon reduction measured after completing this EcoTask.</p>
-              <p className="mt-1 text-sm text-emerald-800">Estimated reduction is the prediction recorded when the task was created. Actual carbon reduction is the measured result and is entered separately below.</p>
-              <form onSubmit={handleActualReductionSubmit} className="mt-4 space-y-3">
-                <div>
-                  <label htmlFor="actual-carbon-reduction" className="block text-sm font-semibold text-emerald-950">
-                    Actual Carbon Reduction (kg CO₂)
-                  </label>
-                  <input
-                    id="actual-carbon-reduction"
-                    name="actualCarbonReduction"
-                    type="number"
-                    min="0"
-                    step="any"
-                    inputMode="decimal"
-                    value={actualReduction}
-                    onChange={(event) => {
-                      setActualReduction(event.target.value);
-                      setActualReductionError(null);
-                      setActualReductionFeedback(null);
-                    }}
-                    aria-describedby={actualReductionError ? "actual-carbon-reduction-error" : undefined}
-                    aria-invalid={actualReductionError ? "true" : "false"}
-                    className="mt-1 w-full rounded-md border border-emerald-300 bg-white px-3 py-2 text-slate-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                    placeholder="Enter the measured result, e.g. 8.4"
-                    disabled={isSavingActualReduction}
-                  />
-                </div>
-                {actualReductionError && (
-                  <p id="actual-carbon-reduction-error" role="alert" className="text-sm text-red-700">
-                    {actualReductionError}
-                  </p>
-                )}
-                {actualReductionFeedback && (
-                  <p role="status" className="text-sm font-medium text-emerald-700">
-                    {actualReductionFeedback}
-                  </p>
-                )}
-                <button
-                  type="submit"
-                  disabled={isSavingActualReduction}
-                  className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
-                >
-                  {isSavingActualReduction ? "Saving measured result..." : "Save Actual Carbon Reduction"}
-                </button>
-              </form>
+              <p className="mt-1 text-sm text-emerald-800">
+                {completedTaskType === "inventory"
+                  ? "Use the activity history and focus-area totals to review the recorded baseline before selecting interventions."
+                  : "The completed task uses persisted project activity data and the existing carbon-calculation logic. Estimated reduction is not used as actual impact."}
+              </p>
             </section>
           )}
-          {activityFeedback === "success" && (
-            <p role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Activity recorded successfully.</p>
-          )}
-          {activityFeedback === "error" && (
-            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">Failed to record activity. Please try again.</p>
-          )}
-          <ActivityForm
-            siteId={siteId}
-            onActivityAdded={() => {
-              setActivityFeedback("success");
-              fetchCarbonData();
-              fetchInsights();
-            }}
-            onActivityError={() => setActivityFeedback("error")}
-          />
         </div>
       </div>
     </>

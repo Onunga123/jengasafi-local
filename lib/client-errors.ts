@@ -64,7 +64,10 @@ export async function requestJson<T>(
     } catch {
       // Use the safe status-based message when the response is not JSON.
     }
-    throw new ClientApiError(messageFor(kind, fallback), kind, response.status);
+    const message = kind === "notFound" && fallback !== "Request failed."
+      ? fallback
+      : messageFor(kind, fallback);
+    throw new ClientApiError(message, kind, response.status);
   }
 
   return (await response.json()) as T;

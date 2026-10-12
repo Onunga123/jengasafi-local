@@ -4,13 +4,16 @@ import CarbonActivity from "@/app/models/CarbonActivity";
 import CarbonData from "@/app/models/carbon-data";
 import Project from "@/app/models/project";
 import Task from "@/app/models/task";
+import ManualCarbonReduction from "@/app/models/ManualCarbonReduction";
 import { fetchEmissionFactors } from "@/lib/emissions";
 import { generateForecast } from "@/lib/forecast";
-import { CarbonActivityType } from "@/types/CarbonActivity";
 import { AuthorizationError, requireAuth } from "@/lib/authorization";
 import { calculateActivityTotals } from "@/lib/carbonCalculation";
-
-const clean = (n: any) => (typeof n === "number" && isFinite(n) ? n : 0);
+import { isVerifiedTaskCarbonReduction } from "@/lib/taskMeasurement";
+import {
+  CarbonActivityContractError,
+  normalizeCarbonActivityRecord,
+} from "@/lib/carbonActivityContract";
 
 type CarbonDataSummary = {
   baselineEmissions?: number;
@@ -53,69 +56,16 @@ export async function GET(req: Request) {
     }).sort({ createdAt: 1 });
 
     const factors = await fetchEmissionFactors();
-    const calculationActivities = activities.map((act) => ({
-      id: String(act._id),
-      timestamp: new Date(act.createdAt).toISOString(),
-      description: act.description ?? "",
-      type: act.type,
-      value: clean(act.value),
-      sustainableEF: act.sustainableEF,
-      standardEF: act.standardEF,
-      fuelType: act.fuelType,
+    const calculationActivities = activities.map(normalizeCarbonActivityRecord);
+    const activityTotals = calculationActivities.map((activity) =>
+      calculateActivityTotals([activity], factors)
+    );
+    const trend = calculationActivities.map((activity, index) => ({
+      time: activity.timestamp,
+      emissions: activityTotals[index].emissions,
+      savings: activityTotals[index].savings,
+      net: activityTotals[index].emissions - activityTotals[index].savings,
     }));
-
-    const trend: any[] = [];
-
-    activities.forEach((act) => {
-      let emissions = 0;
-      let savings = 0;
-
-      // Savings activities
-      if (
-        [
-          CarbonActivityType.RENEWABLE,
-          CarbonActivityType.MATERIAL,
-          CarbonActivityType.RECYCLING,
-          CarbonActivityType.WATER_REUSE,
-        ].includes(act.type as CarbonActivityType)
-      ) {
-        if (act.type === CarbonActivityType.RENEWABLE) {
-          savings = clean(act.value) * clean(factors.energyGrid);
-        } else if (act.type === CarbonActivityType.MATERIAL) {
-          savings =
-            clean(act.value) *
-            (clean(act.standardEF) - clean(act.sustainableEF));
-        } else if (act.type === CarbonActivityType.RECYCLING) {
-          savings = clean(act.value) * clean(factors.wasteLandfill);
-        } else if (act.type === CarbonActivityType.WATER_REUSE) {
-          savings = clean(act.value) * clean(factors.water);
-        }
-      } else {
-        // Emissions activities
-        if (act.type === CarbonActivityType.ENERGY) {
-          emissions =
-            act.fuelType === "diesel"
-              ? clean(act.value) * clean(factors.energyDiesel)
-              : clean(act.value) * clean(factors.energyGrid);
-        } else if (act.type === CarbonActivityType.TRANSPORT) {
-          emissions = clean(act.value) * clean(factors.transport);
-        } else if (act.type === CarbonActivityType.MACHINERY) {
-          emissions = clean(act.value) * clean(factors.fuelDiesel);
-        } else if (act.type === CarbonActivityType.WASTE) {
-          emissions = clean(act.value) * clean(factors.wasteLandfill);
-        } else if (act.type === CarbonActivityType.WATER) {
-          emissions = clean(act.value) * clean(factors.water);
-        }
-      }
-
-      trend.push({
-        time: act.createdAt,
-        emissions: clean(emissions),
-        savings: clean(savings),
-        net: clean(emissions - savings),
-      });
-    });
-
     const totals = calculateActivityTotals(calculationActivities, factors);
     const ownedProjects = siteId
       ? await Project.find({ userId: user.email, siteId }).select("_id").lean()
@@ -123,17 +73,36 @@ export async function GET(req: Request) {
     const projectIds = ownedProjects.map((project) => String(project._id));
     const completedTasks = projectIds.length
       ? await Task.find({ projectId: { $in: projectIds }, status: "done" })
-          .select("actualCarbonReduction")
+          .select("actualCarbonReduction carbonImpactStatus")
           .lean()
       : [];
+    const verifiedTaskIds = new Set(
+      completedTasks
+        .filter((task) => isVerifiedTaskCarbonReduction(task.actualCarbonReduction, task.carbonImpactStatus))
+        .map((task) => String(task._id))
+    );
     const completedTaskSavings = completedTasks.reduce((sum, task) => {
       const reduction = task.actualCarbonReduction;
-      return typeof reduction === "number" && Number.isFinite(reduction) && reduction >= 0
+      return isVerifiedTaskCarbonReduction(reduction, task.carbonImpactStatus)
         ? sum + reduction
         : sum;
     }, 0);
-    const activitySavings = clean(totals.savings);
-    const totalSavings = activitySavings + completedTaskSavings;
+    const manualReductions = projectIds.length
+      ? await ManualCarbonReduction.find({
+          projectId: { $in: projectIds },
+          siteId,
+          userId: user.email,
+          unit: "kg CO₂e",
+          amount: { $gte: 0 },
+        }).lean()
+      : [];
+    const manualTaskSavings = manualReductions.reduce((sum, reduction) => {
+      const amount = reduction.amount;
+      if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0) return sum;
+      return verifiedTaskIds.has(String(reduction.taskId)) ? sum : sum + amount;
+    }, 0);
+    const activitySavings = totals.savings;
+    const totalSavings = activitySavings + completedTaskSavings + manualTaskSavings;
     const canCalculateProgress =
       typeof baselineEmissions === "number" &&
       Number.isFinite(baselineEmissions) &&
@@ -163,11 +132,13 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       activities,
-      totalEmissions: clean(totals.emissions),
+      totalEmissions: totals.emissions,
       activitySavings,
       completedTaskSavings,
+      verifiedTaskSavings: completedTaskSavings,
+      manualTaskSavings,
       totalSavings,
-      netEmissions: clean(totals.emissions - totalSavings),
+      netEmissions: totals.emissions - totalSavings,
       baselineEmissions,
       reductionTarget,
       baselineSetAt,
@@ -178,6 +149,10 @@ export async function GET(req: Request) {
       forecast,
     });
   } catch (err) {
+    if (err instanceof CarbonActivityContractError) {
+      console.error("❌ Invalid CarbonActivity data in /api/carbon-trends:", err.message);
+      return NextResponse.json({ error: "Carbon activity data is invalid; totals could not be calculated" }, { status: 422 });
+    }
     if (err instanceof AuthorizationError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
@@ -188,6 +163,8 @@ export async function GET(req: Request) {
         totalEmissions: 0,
         activitySavings: 0,
         completedTaskSavings: 0,
+        verifiedTaskSavings: 0,
+        manualTaskSavings: 0,
         totalSavings: 0,
         netEmissions: 0,
         baselineEmissions: null,

@@ -88,7 +88,9 @@ export function KPISummary({
         <div className="mt-2 space-y-1 text-xs text-muted-foreground">
           <p>Includes:</p>
           <p>Activity-derived savings: {isLoading ? '...' : `${(carbonData.activitySavings ?? 0).toFixed(2)} kg CO₂`}</p>
-          <p>Completed task outcomes: {isLoading ? '...' : `${(carbonData.completedTaskSavings ?? 0).toFixed(2)} kg CO₂`}</p>
+          <p>Independently verified savings: {isLoading ? '...' : `${(carbonData.verifiedTaskSavings ?? carbonData.completedTaskSavings ?? 0).toFixed(2)} kg CO₂e`}</p>
+          <p>User-confirmed savings: {isLoading ? '...' : `${(carbonData.manualTaskSavings ?? 0).toFixed(2)} kg CO₂e`}</p>
+          <p className="pt-1">User-confirmed values are distinct from independent baseline/post-action measurement verification.</p>
         </div>
       </div>
 

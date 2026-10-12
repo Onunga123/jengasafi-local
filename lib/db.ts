@@ -22,11 +22,30 @@ export async function connectDB() {
   }
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, {
+    const connectionPromise = mongoose.connect(MONGODB_URI, {
       dbName: "nexora",
       bufferCommands: false,
-    }).then((mongoose) => mongoose);
+      connectTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 10000,
+    });
+
+    cached.promise = connectionPromise.catch((error) => {
+      // Do not retain a rejected connection promise. A transient DNS/TLS
+      // failure must be recoverable by the next request without restarting
+      // the development server.
+      cached.promise = null;
+      cached.conn = null;
+      throw error;
+    });
   }
-  cached.conn = await cached.promise;
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (error) {
+    cached.promise = null;
+    cached.conn = null;
+    throw error;
+  }
+
   return cached.conn;
 }

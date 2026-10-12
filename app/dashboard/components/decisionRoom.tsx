@@ -6,6 +6,8 @@ import Card from "@/components/ui/card";
 import TextArea from "@/components/ui/text-area";
 import { requestJson } from "@/lib/client-errors";
 import type { DecisionRoomResponse } from "@/lib/decision-room/schema";
+import { getCarbonActivityLabel, getCarbonReductionUnit } from "@/lib/taskCarbonReduction";
+import { isInventoryTaskText } from "@/lib/taskWorkflow";
 
 interface DecisionRoomProps {
   siteId: string;
@@ -23,6 +25,7 @@ interface CreatedTask {
   status: "todo" | "in-progress" | "done";
   projectId: string;
   estimatedCarbonReduction?: number;
+  taskType?: "standard" | "inventory";
   dueDate?: string;
 }
 
@@ -50,11 +53,11 @@ export default function DecisionRoom({ siteId, projectId, onTaskCreated, onViewE
     const trimmedQuestion = question.trim();
 
     if (!siteId || !projectId) {
-      setError("Create or select a project before asking the Decision Room.");
+      setError("Create or select a project before asking JengaSafi AI.");
       return;
     }
     if (!trimmedQuestion) {
-      setError("Enter a question for the Decision Room.");
+      setError("Enter a question for JengaSafi AI.");
       return;
     }
 
@@ -70,7 +73,7 @@ export default function DecisionRoom({ siteId, projectId, onTaskCreated, onViewE
       setCreatedSteps(new Set());
       setTaskErrors({});
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "The Decision Room could not answer right now.");
+      setError(requestError instanceof Error ? requestError.message : "JengaSafi AI could not answer right now.");
     } finally {
       setIsLoading(false);
     }
@@ -95,6 +98,18 @@ export default function DecisionRoom({ siteId, projectId, onTaskCreated, onViewE
           dueDate: step.dueDate,
           projectId,
           status: "todo",
+          ...(step.materialId ? { materialId: step.materialId } : {}),
+          ...(step.plannedMaterialQuantity !== undefined
+            ? { plannedMaterialQuantity: step.plannedMaterialQuantity }
+            : {}),
+          ...(step.taskType === "inventory" || (!step.taskType && isInventoryTaskText(step.title, step.description))
+            ? { taskType: "inventory" }
+            : step.measurement?.mode === "baseline-post-action" && step.measurement.activityType
+            ? {
+                measurementMode: "baseline-post-action",
+                measurementActivityType: step.measurement.activityType,
+              }
+            : {}),
         }),
       });
       onTaskCreated(createdTask);
@@ -114,13 +129,9 @@ export default function DecisionRoom({ siteId, projectId, onTaskCreated, onViewE
       <Card className="border-emerald-200 bg-white">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-emerald-700">
-              <Brain className="h-5 w-5" aria-hidden="true" />
-              <p className="text-sm font-semibold uppercase tracking-wide">Decision Room</p>
-            </div>
-            <h2 className="mt-2 text-2xl font-bold text-slate-900">Ask about your project</h2>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">Ask JengaSafi AI</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
-              Get a grounded recommendation based on the currently recorded project context, with evidence, tradeoffs, uncertainties, and proposed next steps.
+              Ask questions about your construction project and get grounded recommendations based on recorded project context, with evidence, tradeoffs, uncertainties, and proposed next steps.
             </p>
           </div>
           <Sparkles className="hidden h-8 w-8 text-emerald-500 sm:block" aria-hidden="true" />
@@ -128,7 +139,7 @@ export default function DecisionRoom({ siteId, projectId, onTaskCreated, onViewE
 
         {!siteId || !projectId ? (
           <div className="mt-6 rounded-lg border border-dashed border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">
-            Create or select a construction project before using the Decision Room.
+            Create or select a construction project before asking JengaSafi AI.
           </div>
         ) : (
           <form onSubmit={submitQuestion} className="mt-6 space-y-4">
@@ -146,7 +157,7 @@ export default function DecisionRoom({ siteId, projectId, onTaskCreated, onViewE
               className="border border-slate-300 bg-white ps-3 text-slate-900 placeholder:text-slate-400"
             />
             <p id="decision-room-help" className="text-xs text-slate-500">
-              Questions are answered from the selected project and site context. The Decision Room does not change project records.
+              Questions are answered from the selected project and site context. Ask JengaSafi AI does not change project records.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -155,17 +166,8 @@ export default function DecisionRoom({ siteId, projectId, onTaskCreated, onViewE
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
               >
                 <Brain className="h-4 w-4" aria-hidden="true" />
-                {isLoading ? "Analyzing project context..." : "Ask Decision Room"}
+                {isLoading ? "Analyzing project context..." : "Ask JengaSafi AI"}
               </button>
-              {!result && !isLoading && (
-                <button
-                  type="button"
-                  onClick={() => setQuestion(defaultQuestion)}
-                  className="rounded-lg border border-emerald-200 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-                >
-                  Use example question
-                </button>
-              )}
             </div>
           </form>
         )}
@@ -266,6 +268,33 @@ export default function DecisionRoom({ siteId, projectId, onTaskCreated, onViewE
                     )}
                     {step.dueDate && <span className="rounded-full bg-slate-100 px-2.5 py-1">Due: {formatDate(step.dueDate)}</span>}
                   </div>
+                  {step.measurement?.mode === "baseline-post-action" && step.measurement.activityType && (
+                    <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                      <p className="text-sm font-semibold text-emerald-900">Measurement plan: baseline → action → post-action</p>
+                      <p className="mt-1 text-xs text-emerald-800">
+                        Activity measured: {getCarbonActivityLabel(step.measurement.activityType)} ({getCarbonReductionUnit(step.measurement.activityType)})
+                      </p>
+                      <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs leading-5 text-emerald-800">
+                        <li>Record a baseline measurement before the action.</li>
+                        <li>Perform the recommended action.</li>
+                        <li>Record a post-action measurement.</li>
+                        <li>Actual carbon reduction is calculated by the server from those two recorded measurements.</li>
+                      </ol>
+                      <p className="mt-2 text-xs leading-5 text-emerald-800">
+                        Measurements are recorded later from EcoTasks; nothing needs to be entered now.
+                        {step.estimatedCarbonReduction !== undefined && step.estimatedCarbonReduction !== null &&
+                          " The estimated reduction above is a planning estimate, not a measured result."}
+                      </p>
+                    </div>
+                  )}
+                  {(step.taskType === "inventory" || (!step.taskType && isInventoryTaskText(step.title, step.description))) && (
+                    <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
+                      <p className="text-sm font-semibold text-blue-900">Carbon activity inventory and baseline collection</p>
+                      <p className="mt-1 text-xs leading-5 text-blue-800">
+                        Record the actual Energy, Materials, Waste, Transport, and Machinery activities needed to establish the project baseline. These records feed Carbon Intelligence; this task does not calculate a carbon reduction.
+                      </p>
+                    </div>
+                  )}
                   <div className="mt-4 flex flex-wrap items-center gap-3">
                     <button
                       type="button"

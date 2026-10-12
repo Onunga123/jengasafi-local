@@ -7,6 +7,10 @@ import CarbonActivity from "@/app/models/CarbonActivity";
 import { AuthorizationError, requireAuth } from "@/lib/authorization";
 import { fetchEmissionFactors } from "@/lib/emissions";
 import { calculateActivityTotals } from "@/lib/carbonCalculation";
+import {
+  CarbonActivityContractError,
+  normalizeCarbonActivityRecord,
+} from "@/lib/carbonActivityContract";
 
 // POST /api/carbon-data/set-baseline
 //
@@ -48,16 +52,7 @@ export async function POST(req: Request) {
     // total only, not the combined Carbon Intelligence savings figure.
     const activities = await CarbonActivity.find({ userId: user.email, siteId }).lean();
     const factors = await fetchEmissionFactors();
-    const calculationActivities = activities.map((activity) => ({
-      id: String(activity._id),
-      timestamp: new Date(activity.createdAt).toISOString(),
-      description: activity.description ?? "",
-      type: activity.type,
-      value: activity.value,
-      sustainableEF: activity.sustainableEF,
-      standardEF: activity.standardEF,
-      fuelType: activity.fuelType,
-    }));
+    const calculationActivities = activities.map(normalizeCarbonActivityRecord);
     const totals = calculateActivityTotals(calculationActivities, factors);
     const totalEmissions = totals.emissions;
 
@@ -95,6 +90,10 @@ export async function POST(req: Request) {
       reductionTarget: updated.reductionTarget,
     });
   } catch (err: unknown) {
+    if (err instanceof CarbonActivityContractError) {
+      console.error("❌ Invalid CarbonActivity data while setting baseline:", err.message);
+      return NextResponse.json({ error: "Carbon activity data is invalid; baseline could not be calculated" }, { status: 422 });
+    }
     if (err instanceof AuthorizationError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }

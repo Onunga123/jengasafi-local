@@ -141,14 +141,14 @@ export function AIInsights({ insights, isLoading, carbonData }: AIInsightsProps)
             </div>
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-800">Carbon insights</h3>
-            <p className="text-sm text-gray-600 mt-1">Recommendations based on recorded project activity</p>
+            <h3 className="text-xl font-bold text-gray-800">Deterministic carbon insights</h3>
+            <p className="text-sm text-gray-600 mt-1">Rule-based signals from recorded project activity</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2 px-3 py-1.5 bg-white/80 rounded-full border border-gray-200 shadow-sm">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-xs font-semibold text-gray-700">Activity-based</span>
+          <span className="text-xs font-semibold text-gray-700">Recorded activity signals</span>
           <Sparkles className="w-3 h-3 text-yellow-500" />
         </div>
       </div>
@@ -255,7 +255,7 @@ export function AIInsights({ insights, isLoading, carbonData }: AIInsightsProps)
                         </div>
                         
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-600">Signal strength</span>
+                          <span className="text-gray-600">Rule indicator</span>
                           <div className="w-20 bg-gray-200 rounded-full h-2">
                             <div 
                               className="bg-blue-500 h-2 rounded-full transition-all duration-500"
@@ -314,7 +314,7 @@ export function AIInsights({ insights, isLoading, carbonData }: AIInsightsProps)
             <p className="text-sm text-gray-500 max-w-sm mx-auto">
               {selectedCategory !== 'all' 
                 ? `No ${selectedCategory} insights found. Try selecting a different category.`
-                : 'Add carbon activities to generate project recommendations.'
+                : 'Add carbon activities to generate deterministic carbon signals.'
               }
             </p>
           </div>

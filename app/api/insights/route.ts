@@ -6,7 +6,7 @@ import { AuthorizationError, requireAuth } from "@/lib/authorization";
 import { buildCarbonInsights } from "@/lib/carbonInsights";
 /**
  * /api/insights
- * Returns AI-style insights & recommendations from carbon activity data.
+ * Returns deterministic carbon insights from recorded activity data.
  */
 export async function GET(req: Request) {
   try {

@@ -11,6 +11,7 @@ import {
   FolderKanban,
   Leaf,
   ListChecks,
+  Database,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -84,6 +85,11 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
       icon: <Leaf className="h-5 w-5" />,
     },
     {
+      name: "Carbon Data",
+      href: "/dashboard?tab=carbon-data",
+      icon: <Database className="h-5 w-5" />,
+    },
+    {
       name: "Materials",
       href: "/dashboard/materials",
       icon: <Package className="h-5 w-5 text-amber-800" />,
@@ -94,7 +100,7 @@ export default function Sidebar({ userRole = "user" }: { userRole?: string }) {
       icon: <ListChecks className="h-5 w-5" />,
     },
     {
-      name: "Decision Room",
+      name: "Ask JengaSafi AI",
       href: "/dashboard?tab=decision-room",
       icon: <Brain className="h-5 w-5" />,
     },

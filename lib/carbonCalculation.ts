@@ -1,6 +1,10 @@
 // lib/carbon-calculations.ts
 
 import { authoritativeEmissionFactors } from "@/lib/emissionFactors";
+import {
+  CarbonActivityContractError,
+  validateCarbonActivityInput,
+} from "@/lib/carbonActivityContract";
 
 // Shared authoritative factors retained under this export for the existing
 // client-side calculation helper API.
@@ -23,6 +27,9 @@ export const emissionFactors = authoritativeEmissionFactors;
     totalEmissions: number;
     activitySavings?: number;
     completedTaskSavings?: number;
+    verifiedTaskSavings?: number;
+    manualTaskSavings?: number;
+    userReportedTaskSavings?: number;
     totalSavings: number;
     netEmissions: number;
     baselineEmissions?: number | null;
@@ -47,25 +54,42 @@ export const emissionFactors = authoritativeEmissionFactors;
   export const calculateActivityTotals = (
     activities: CarbonActivity[],
     factors: CarbonCalculationFactors
-  ) => activities.reduce(
-    (totals, activity) => {
+  ) => {
+    for (const [name, factor] of Object.entries(factors)) {
+      if (typeof factor !== "number" || !Number.isFinite(factor) || factor < 0) {
+        throw new CarbonActivityContractError(`Emission factor ${name} is invalid`, name);
+      }
+    }
+
+    return activities.reduce(
+      (totals, activity) => {
+        const validated = validateCarbonActivityInput(activity);
+        const calculationActivity = {
+          ...activity,
+          type: validated.type,
+          value: validated.value,
+          standardEF: validated.standardEF,
+          sustainableEF: validated.sustainableEF,
+          fuelType: validated.fuelType,
+        };
       let emissions = 0;
       let savings = 0;
-      switch (activity.type) {
-        case "energy": emissions = activity.value * (activity.fuelType === "diesel" ? factors.energyDiesel : factors.energyGrid); break;
-        case "transport": emissions = activity.value * factors.transport; break;
-        case "machinery": emissions = activity.value * factors.fuelDiesel; break;
-        case "waste": emissions = activity.value * factors.wasteLandfill; break;
-        case "water": emissions = activity.value * factors.water; break;
-        case "renewable": savings = activity.value * factors.energyGrid; break;
-        case "material": savings = activity.value * ((activity.standardEF || 0) - (activity.sustainableEF || 0)); break;
-        case "recycling": savings = activity.value * factors.wasteLandfill; break;
-        case "waterReuse": savings = activity.value * factors.water; break;
+      switch (calculationActivity.type) {
+        case "energy": emissions = calculationActivity.value * (calculationActivity.fuelType === "diesel" ? factors.energyDiesel : factors.energyGrid); break;
+        case "transport": emissions = calculationActivity.value * factors.transport; break;
+        case "machinery": emissions = calculationActivity.value * factors.fuelDiesel; break;
+        case "waste": emissions = calculationActivity.value * factors.wasteLandfill; break;
+        case "water": emissions = calculationActivity.value * factors.water; break;
+        case "renewable": savings = calculationActivity.value * factors.energyGrid; break;
+        case "material": savings = calculationActivity.value * (calculationActivity.standardEF! - calculationActivity.sustainableEF!); break;
+        case "recycling": savings = calculationActivity.value * factors.wasteLandfill; break;
+        case "waterReuse": savings = calculationActivity.value * factors.water; break;
       }
       return { emissions: totals.emissions + emissions, savings: totals.savings + savings };
-    },
-    { emissions: 0, savings: 0 }
-  );
+      },
+      { emissions: 0, savings: 0 }
+    );
+  };
 
   export const emptyCarbonData: CarbonData = {
     activities: [],
@@ -80,6 +104,7 @@ export const emissionFactors = authoritativeEmissionFactors;
   
   // ---------- Carbon Calculation Functions ----------
   export const calculateEmissions = (activity: CarbonActivity): number => {
+    validateCarbonActivityInput(activity);
     switch (activity.type) {
       case "energy":
         return activity.fuelType === "diesel"
@@ -99,11 +124,12 @@ export const emissionFactors = authoritativeEmissionFactors;
   };
   
   export const calculateSavings = (activity: CarbonActivity): number => {
+    validateCarbonActivityInput(activity);
     switch (activity.type) {
       case "renewable":
         return activity.value * emissionFactors.energyGrid;
       case "material":
-        return activity.value * ((activity.standardEF || 0) - (activity.sustainableEF || 0));
+        return activity.value * (activity.standardEF! - activity.sustainableEF!);
       case "recycling":
         return activity.value * emissionFactors.wasteLandfill;
       case "waterReuse":

@@ -10,6 +10,8 @@ export interface ICarbonActivity extends Document {
   sustainableEF?: number;
   standardEF?: number;
   fuelType?: "diesel" | "grid" | "petrol" | "hybrid" | "electric";
+  taskId?: mongoose.Types.ObjectId;
+  measurementPhase?: "baseline" | "post-action";
   createdAt: Date;
 }
 
@@ -29,6 +31,11 @@ const CarbonActivitySchema = new Schema<ICarbonActivity>(
     fuelType: {
       type: String,
       enum: ["diesel", "grid", "petrol", "hybrid", "electric"],
+    },
+    taskId: { type: Schema.Types.ObjectId, ref: "Task" },
+    measurementPhase: {
+      type: String,
+      enum: ["baseline", "post-action"],
     },
   },
   { timestamps: true }

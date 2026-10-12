@@ -14,6 +14,7 @@ import {
   calculateEfficiencyScore,
   calculateActivityTotals,
 } from "@/lib/carbonCalculation";
+import { normalizeCarbonActivityRecord } from "@/lib/carbonActivityContract";
 import { fetchEmissionFactors } from "@/lib/emissions";
 import { buildCarbonInsights } from "@/lib/carbonInsights";
 
@@ -102,16 +103,7 @@ export async function POST(req: Request) {
       : [];
     const reportActivities = activities as unknown as ReportActivity[];
 
-    const calculationActivities = reportActivities.map((activity) => ({
-      id: String(activity._id),
-      timestamp: new Date(activity.createdAt).toISOString(),
-      description: activity.description ?? "",
-      type: activity.type,
-      value: activity.value,
-      sustainableEF: activity.sustainableEF,
-      standardEF: activity.standardEF,
-      fuelType: activity.fuelType,
-    }));
+    const calculationActivities = reportActivities.map(normalizeCarbonActivityRecord);
     const factors = await fetchEmissionFactors();
     const carbonTotals = calculateActivityTotals(calculationActivities, factors);
     const activityTotals = calculationActivities.map((activity) =>

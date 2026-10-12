@@ -7,7 +7,9 @@ import ClientInfoModal from "./components/clientInfoModal";
 import ProjectList from "./components/projectList";
 import EcoTaskManager from "./components/ecotaskManager";
 import DecisionRoom from "./components/decisionRoom";
+import CarbonData from "./components/carbonData";
 import CarbonVisualization from "@/components/environment/carbonnew";
+import { isInventoryTaskText } from "@/lib/taskWorkflow";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -24,6 +26,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [carbonRefreshSignal, setCarbonRefreshSignal] = useState(0);
   const [recentlyCompletedTaskId, setRecentlyCompletedTaskId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   const selectTab = (tab: string) => {
     setActiveTab(tab);
@@ -96,9 +99,18 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const tab = searchParams?.get("tab");
-    if (tab === "projects" || tab === "eco-tasks" || tab === "decision-room" || tab === "carbon-intelligence") setActiveTab(tab);
+    if (tab === "projects" || tab === "eco-tasks" || tab === "decision-room" || tab === "carbon-intelligence" || tab === "carbon-data") setActiveTab(tab);
     else setActiveTab("overview");
   }, [searchParams]);
+
+  useEffect(() => {
+    setCurrentTime(new Date());
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
+    return () => clearInterval(timeInterval);
+  }, []);
 
 
 
@@ -136,6 +148,16 @@ export default function DashboardPage() {
     setEcoTasks((prev) => prev.filter((task) => task._id !== taskId));
   };
 
+  const greeting = currentTime
+    ? (() => {
+        const hour = currentTime.getHours();
+        if (hour >= 5 && hour < 12) return "Good morning";
+        if (hour >= 12 && hour < 17) return "Good afternoon";
+        if (hour >= 17 && hour < 21) return "Good evening";
+        return "Good night";
+      })()
+    : "Good morning";
+
   // --- render ---
   if (status === "loading" || (status === "authenticated" && loadingProfile)) {
     return (
@@ -155,45 +177,28 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-3 sm:p-6 lg:p-8">
-      <header className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
-          Operational overview
-        </p>
-        <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">
-          Good morning, {session?.user?.name?.split(" ")[0] || "there"}
-        </h1>
-        <p className="max-w-2xl text-base text-slate-600 sm:text-lg">
-          Understand what is happening on your construction work, what needs attention, and which action to take next.
-        </p>
-      </header>
-
       {!loadingProfile && hasFetched && !clientData && (
         <ClientInfoModal onSave={handleProfileSave} />
       )}
 
       {!loadingProfile && clientData && (
         <div className="space-y-10">
-          {/* Operational areas */}
-          <div className="border-b border-gray-200 flex space-x-4">
-            {["overview", "projects", "eco-tasks", "decision-room", "carbon-intelligence"].map((tab) => (
-              <button
-                key={tab}
-                className={`px-4 py-2 font-medium transition ${
-                  activeTab === tab
-                    ? "text-emerald-600 border-b-2 border-emerald-600"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-                onClick={() => selectTab(tab)}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1).replace("-", " ")}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab Content */}
+          {/* Section Content */}
           <div className="space-y-8">
             {activeTab === "overview" && (
               <div className="space-y-8">
+                <header className="space-y-2">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
+                    Operational overview
+                  </p>
+                  <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">
+                    {greeting}, {session?.user?.name?.split(" ")[0] || "there"}
+                  </h1>
+                  <p className="max-w-2xl text-base text-slate-600 sm:text-lg">
+                    Understand what is happening on your construction work, what needs attention, and which action to take next.
+                  </p>
+                </header>
+
                 <section className="app-surface p-4 sm:p-6" aria-labelledby="project-context-title">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
@@ -252,10 +257,24 @@ export default function DashboardPage() {
                   <p className="text-gray-600">Review recorded construction activity and identify the next area to improve.</p>
                 </div>
                 <CarbonVisualization
-                  siteId={projects[0]?.siteId || sites[0]?._id || ""}
+                  siteId={(() => {
+                    const completedTask = ecoTasks.find((task) => task._id === recentlyCompletedTaskId);
+                    return projects.find((project) => project._id === completedTask?.projectId)?.siteId
+                      || projects[0]?.siteId
+                      || sites[0]?._id
+                      || "";
+                  })()}
                   refreshSignal={carbonRefreshSignal}
                   completedTaskId={recentlyCompletedTaskId}
                   completedTaskTitle={ecoTasks.find((task) => task._id === recentlyCompletedTaskId && task.status === "done")?.title ?? null}
+                  completedTaskImpact={ecoTasks.find((task) => task._id === recentlyCompletedTaskId && task.status === "done")?.actualCarbonReduction ?? null}
+                  completedTaskImpactStatus={ecoTasks.find((task) => task._id === recentlyCompletedTaskId && task.status === "done")?.carbonImpactStatus ?? "not-verifiable"}
+                  completedTaskType={(() => {
+                    const completedTask = ecoTasks.find((task) => task._id === recentlyCompletedTaskId && task.status === "done");
+                    return completedTask?.taskType === "inventory" || isInventoryTaskText(completedTask?.title, completedTask?.description)
+                      ? "inventory"
+                      : completedTask?.taskType;
+                  })()}
                   carbonEmitted={clientData?.carbonEmitted ?? 0}
                   carbonSaved={clientData?.carbonSaved ?? 0}
                   trend={[
@@ -271,6 +290,9 @@ export default function DashboardPage() {
                 />
               </section>
             )}
+            {activeTab === "carbon-data" && (
+              <CarbonData siteId={projects[0]?.siteId || sites[0]?._id || ""} />
+            )}
             {activeTab === "projects" && (
               <ProjectList projects={projects} onAddProject={addProject} />
             )}
@@ -279,7 +301,6 @@ export default function DashboardPage() {
               <EcoTaskManager
                 tasks={ecoTasks}
                 projects={projects}
-                onAddTask={addEcoTask}
                 onUpdateTask={updateEcoTask}
                 onTaskCompleted={setRecentlyCompletedTaskId}
                 recentlyCompletedTaskId={recentlyCompletedTaskId}
