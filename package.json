@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "type": "module",
-    "lint": "next lint",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "seed": "tsx scripts/seed.ts",
     "postinstall": "patch-package"
   },

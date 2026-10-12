@@ -1,8 +1,9 @@
 // utils/sensorIngestion.js
-require('dotenv').config(); // Load .env
+import dotenv from 'dotenv';
+import { MongoClient } from 'mongodb';
+import axios from 'axios';
 
-const { MongoClient } = require('mongodb');
-const axios = require('axios');
+dotenv.config(); // Load .env
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const SENSOR_API_URL = 'https://68813bca66a7eb81224a70d5.mockapi.io/sensors';

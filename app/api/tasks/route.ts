@@ -50,13 +50,14 @@ export async function GET(req: Request) {
       return reduction
         ? {
             ...task,
+            _id: String(task._id),
             manualCarbonReduction: reduction.amount,
             manualCarbonReductionUnit: reduction.unit,
             manualCarbonReductionDescription: reduction.description,
             manualCarbonReductionProvenance: reduction.provenance,
             manualCarbonReductionRecordedAt: reduction.updatedAt,
           }
-        : task;
+        : { ...task, _id: String(task._id) };
     });
 
     return NextResponse.json(tasksWithManualReductions);
@@ -206,7 +207,10 @@ export async function POST(req: Request) {
       assignedTo: body.assignedTo,
     });
 
-    return NextResponse.json(task, { status: 201 });
+    return NextResponse.json(
+      { ...task.toObject(), _id: String(task._id) },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof TaskMeasurementValidationError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

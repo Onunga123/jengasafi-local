@@ -37,7 +37,6 @@
     "**/*.tsx",
     "next-env.d.ts",
     ".next/types/**/*.ts",
-    "lib/db.js",
     "app/models/ecotask.ts",
     "app/dashboard/logistics/electricFleet",
     ".next/dev/types/**/*.ts"

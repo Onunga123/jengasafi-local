@@ -24,7 +24,7 @@ export async function POST(
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
     if (!mongoose.isValidObjectId(id)) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
     }
 
     const task = await Task.findById(id);
